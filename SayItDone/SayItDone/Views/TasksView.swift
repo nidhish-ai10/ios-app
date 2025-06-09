@@ -521,6 +521,16 @@ struct TasksView: View {
             // Check permissions for VAD
             self.startVAD()
         }
+        
+        // Observe toggle VAD requests from MainView microphone button
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("ToggleVAD"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            // Toggle VAD state
+            self.toggleVAD()
+        }
     }
     
     // Remove notification observers when the view disappears
@@ -534,6 +544,12 @@ struct TasksView: View {
         NotificationCenter.default.removeObserver(
             self,
             name: Notification.Name("CheckVADPermissions"),
+            object: nil
+        )
+        
+        NotificationCenter.default.removeObserver(
+            self,
+            name: Notification.Name("ToggleVAD"),
             object: nil
         )
     }

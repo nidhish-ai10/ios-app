@@ -112,6 +112,28 @@ struct MainView: View {
                 VStack(spacing: 0) {
                     // Top bar with account button
                     HStack(alignment: .center) {
+                        // Microphone icon on the left side
+                        Button(action: {
+                            // Post notification to toggle VAD in TasksView
+                            NotificationCenter.default.post(
+                                name: Notification.Name("ToggleVAD"),
+                                object: nil
+                            )
+                        }) {
+                            ZStack {
+                                Circle()
+                                    .fill(pastelBlueDarker)
+                                    .frame(width: 36, height: 36)
+                                
+                                Image(systemName: "mic.fill")
+                                    .foregroundColor(.white)
+                                    .font(.system(size: 16))
+                            }
+                            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        }
+                        .padding(.leading, 16)
+                        .accessibilityLabel("Toggle Voice Listening")
+                        
                         Spacer()
                         
                         // Account button - now opens settings directly
