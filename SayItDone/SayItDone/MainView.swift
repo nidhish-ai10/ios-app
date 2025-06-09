@@ -7,47 +7,6 @@
 
 import SwiftUI
 
-// Create new views for the additional tabs
-struct NotificationsView: View {
-    var body: some View {
-        VStack {
-            Text("Notifications")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .padding(.top, 40)
-            
-            Spacer()
-            
-            Text("You have no new notifications")
-                .foregroundColor(.secondary)
-            
-            Spacer()
-        }
-        .background(Color(UIColor.systemBackground))
-        .edgesIgnoringSafeArea(.all)
-    }
-}
-
-struct RecordsView: View {
-    var body: some View {
-        VStack {
-            Text("Records")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .padding(.top, 40)
-            
-            Spacer()
-            
-            Text("Your task history will appear here")
-                .foregroundColor(.secondary)
-            
-            Spacer()
-        }
-        .background(Color(UIColor.systemBackground))
-        .edgesIgnoringSafeArea(.all)
-    }
-}
-
 struct MainView: View {
     // Retrieve stored user name and login state
     @AppStorage("userFirstName") private var userFirstName: String = ""
@@ -62,71 +21,44 @@ struct MainView: View {
     let pastelBlueDarker = Color(red: 150/255, green: 190/255, blue: 255/255)
     
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // Notifications Tab
-            NotificationsView()
-                .tabItem {
-                    Image(systemName: "bell.fill")
-                    Text("Notifications")
-                }
-                .tag(0)
-            
-            // Home Tab (Main Tasks View)
-            NavigationView {
-                GeometryReader { geometry in
-                    ZStack {
-                        // Use dynamic background color based on color scheme
-                        Color(UIColor.systemBackground)
-                            .edgesIgnoringSafeArea(.all)
-                        
-                        // Main content - Now using TasksView for the main content
-                        VStack(spacing: 0) {
-                            // Top bar with account button
-                            HStack(alignment: .center) {
-                                Spacer()
-                                
-                                // Account button - now opens settings directly
-                                Button(action: {
-                                    showingSettingsView = true
-                                }) {
-                                    Circle()
-                                        .fill(pastelBlueDarker)
-                                        .frame(width: 36, height: 36)
-                                        .overlay(
-                                            Text(String(userFirstName.prefix(1)).uppercased())
-                                                .foregroundColor(.white)
-                                                .font(.system(size: 16, weight: .medium))
-                                        )
-                                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-                                }
-                                .padding(.trailing, 16)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                            .padding(.top, 16)
-                            .padding(.bottom, 8)
-                            
-                            // TasksView for the main task management functionality
-                            TasksView()
-                        }
+        NavigationView {
+            TabView(selection: $selectedTab) {
+                // Notifications Tab
+                notificationsContent
+                    .tabItem {
+                        Image(systemName: "bell.fill")
+                        Text("Notifications")
                     }
-                }
-                .navigationBarHidden(true)
+                    .tag(0)
+                
+                // Home Tab (Main Tasks View)
+                homeContent
+                    .tabItem {
+                        Image(systemName: "house.fill")
+                        Text("Home")
+                    }
+                    .tag(1)
+                
+                // Records Tab
+                recordsContent
+                    .tabItem {
+                        Image(systemName: "doc.text.fill")
+                        Text("Records")
+                    }
+                    .tag(2)
             }
-            .tabItem {
-                Image(systemName: "house.fill")
-                Text("Home")
+            .accentColor(pastelBlueDarker) // Set the accent color for the tab bar
+            .onAppear {
+                // Set tab bar appearance
+                let appearance = UITabBarAppearance()
+                appearance.configureWithDefaultBackground()
+                UITabBar.appearance().standardAppearance = appearance
+                UITabBar.appearance().scrollEdgeAppearance = appearance
             }
-            .tag(1)
-            
-            // Records Tab
-            RecordsView()
-                .tabItem {
-                    Image(systemName: "doc.text.fill")
-                    Text("Records")
-                }
-                .tag(2)
+            .navigationTitle(selectedTab == 0 ? "Notifications" : selectedTab == 1 ? "" : "Records")
+            .navigationBarTitleDisplayMode(selectedTab == 1 ? .inline : .large)
         }
-        .accentColor(pastelBlueDarker) // Set the accent color for the tab bar
+        .navigationViewStyle(StackNavigationViewStyle())
         .sheet(isPresented: $showingProfileOptions) {
             AccountSheetView(isLoggedIn: $isLoggedIn, userFirstName: $userFirstName)
         }
@@ -135,12 +67,6 @@ struct MainView: View {
         }
         .onAppear {
             setupNotificationObservers()
-            
-            // Set tab bar appearance
-            let appearance = UITabBarAppearance()
-            appearance.configureWithDefaultBackground()
-            UITabBar.appearance().standardAppearance = appearance
-            UITabBar.appearance().scrollEdgeAppearance = appearance
             
             // Apply dark mode setting on appear
             setAppearance()
@@ -151,6 +77,88 @@ struct MainView: View {
         .onDisappear {
             removeNotificationObservers()
         }
+    }
+    
+    // MARK: - Tab Content Views
+    
+    private var notificationsContent: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            Image(systemName: "bell.slash")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary.opacity(0.7))
+                .padding(.bottom, 10)
+            
+            Text("You have no new notifications")
+                .font(.headline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(UIColor.systemBackground))
+    }
+    
+    private var homeContent: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Use dynamic background color based on color scheme
+                Color(UIColor.systemBackground)
+                    .edgesIgnoringSafeArea(.all)
+                
+                // Main content - Now using TasksView for the main content
+                VStack(spacing: 0) {
+                    // Top bar with account button
+                    HStack(alignment: .center) {
+                        Spacer()
+                        
+                        // Account button - now opens settings directly
+                        Button(action: {
+                            showingSettingsView = true
+                        }) {
+                            Circle()
+                                .fill(pastelBlueDarker)
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Text(String(userFirstName.prefix(1)).uppercased())
+                                        .foregroundColor(.white)
+                                        .font(.system(size: 16, weight: .medium))
+                                )
+                                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        }
+                        .padding(.trailing, 16)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                    
+                    // TasksView for the main task management functionality
+                    TasksView()
+                }
+            }
+        }
+    }
+    
+    private var recordsContent: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            
+            Image(systemName: "doc.text.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary.opacity(0.7))
+                .padding(.bottom, 10)
+            
+            Text("Your task history will appear here")
+                .font(.headline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(UIColor.systemBackground))
     }
     
     // Set the app appearance based on dark mode setting
