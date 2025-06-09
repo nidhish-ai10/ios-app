@@ -78,9 +78,9 @@ struct MainView: View {
                             HStack(alignment: .center) {
                                 Spacer()
                                 
-                                // Account button
+                                // Account button - now opens settings directly
                                 Button(action: {
-                                    showingProfileOptions = true
+                                    showingSettingsView = true
                                 }) {
                                     Circle()
                                         .fill(pastelBlueDarker)
