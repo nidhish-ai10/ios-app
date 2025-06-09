@@ -71,7 +71,7 @@ struct MainView: View {
             // Apply dark mode setting on appear
             setAppearance()
         }
-        .onChange(of: isDarkMode) { _, _ in
+        .onChange(of: isDarkMode) { newValue in
             setAppearance()
         }
         .onDisappear {
@@ -118,17 +118,31 @@ struct MainView: View {
                         Button(action: {
                             showingSettingsView = true
                         }) {
-                            Circle()
-                                .fill(pastelBlueDarker)
-                                .frame(width: 36, height: 36)
-                                .overlay(
-                                    Text(String(userFirstName.prefix(1)).uppercased())
-                                        .foregroundColor(.white)
-                                        .font(.system(size: 16, weight: .medium))
-                                )
-                                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                            ZStack {
+                                Circle()
+                                    .fill(pastelBlueDarker)
+                                    .frame(width: 36, height: 36)
+                                    .overlay(
+                                        Text(String(userFirstName.prefix(1)).uppercased())
+                                            .foregroundColor(.white)
+                                            .font(.system(size: 16, weight: .medium))
+                                    )
+                                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                                
+                                // Small gear icon indicator at the bottom right
+                                Circle()
+                                    .fill(Color.white)
+                                    .frame(width: 16, height: 16)
+                                    .overlay(
+                                        Image(systemName: "gear")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(pastelBlueDarker)
+                                    )
+                                    .offset(x: 12, y: 12)
+                            }
                         }
                         .padding(.trailing, 16)
+                        .accessibilityLabel("Settings")
                     }
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.top, 16)

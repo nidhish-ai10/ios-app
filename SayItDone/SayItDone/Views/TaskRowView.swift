@@ -65,14 +65,14 @@ struct TaskRowView: View {
                 // Only show due date info if there is a due date
                 if task.dueDate != nil {
                     HStack(spacing: 6) {
-                        // Clock icon
-                        Image(systemName: task.isOverdue ? "exclamationmark.circle" : "clock")
+                        // Calendar icon instead of clock
+                        Image(systemName: task.isOverdue ? "exclamationmark.circle" : "calendar")
                             .font(.system(size: 12))
                             .foregroundColor(task.isOverdue ? .red : .gray)
                         
-                        // Due date with smart formatting
+                        // Due date with improved formatting
                         Text(task.dueDateDisplay)
-                            .font(.system(size: 12))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(task.isOverdue ? .red : .gray)
                         
                         // Time remaining indicator

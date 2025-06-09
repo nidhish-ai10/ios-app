@@ -31,14 +31,14 @@ struct SayItDoneApp: App {
             if isLoggedIn {
                 // User is logged in, show the main view which incorporates TasksView
                 MainView()
-                    .onChange(of: isDarkMode) { _, _ in
+                    .onChange(of: isDarkMode) { newValue in
                         // Update appearance when dark mode setting changes
                         setAppearance()
                     }
             } else {
                 // User is not logged in, show the login/welcome view
                 ContentView()
-                    .onChange(of: isDarkMode) { _, _ in
+                    .onChange(of: isDarkMode) { newValue in
                         // Update appearance when dark mode setting changes
                         setAppearance()
                     }

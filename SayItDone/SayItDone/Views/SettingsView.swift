@@ -28,6 +28,8 @@ struct SettingsView: View {
     @State private var sensitivityValue: Double = 0.7
     @AppStorage("voiceSensitivity") private var voiceSensitivity: Double = 0.7
     @AppStorage("isAutomaticSilenceDetection") private var isAutomaticSilenceDetection = true
+    @AppStorage("isVADEnabled") private var isVADEnabled = false
+    @AppStorage("vadSensitivity") private var vadSensitivity: Double = 0.5
     
     // Security
     @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled = false
@@ -100,7 +102,7 @@ struct SettingsView: View {
                 // MARK: - Preferences Section
                 Section(header: Text("Preferences")) {
                     Toggle("Dark Mode", isOn: $isDarkMode)
-                        .onChange(of: isDarkMode) { _, newValue in
+                        .onChange(of: isDarkMode) { newValue in
                             // Apply the color scheme change using the modern API
                             let scenes = UIApplication.shared.connectedScenes
                             let windowScene = scenes.first as? UIWindowScene
@@ -108,9 +110,50 @@ struct SettingsView: View {
                             window?.overrideUserInterfaceStyle = newValue ? .dark : .light
                         }
                     
-                    Toggle("Haptic Feedback", isOn: $isHapticsEnabled)
+                    // Sound effects toggle
+                    HStack {
+                        Label("Sound Effects", systemImage: "speaker.wave.2")
+                        Spacer()
+                        Toggle("", isOn: $isSoundEnabled)
+                            .labelsHidden()
+                            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                            .padding(.trailing, 4)
+                    }
                     
-                    Toggle("Sound Effects", isOn: $isSoundEnabled)
+                    // Haptic feedback toggle
+                    HStack {
+                        Label("Haptic Feedback", systemImage: "iphone.radiowaves.left.and.right")
+                        Spacer()
+                        Toggle("", isOn: $isHapticsEnabled)
+                            .labelsHidden()
+                            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                            .padding(.trailing, 4)
+                    }
+                    
+                    // Microphone sensitivity
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label("Microphone Sensitivity", systemImage: "mic.slash")
+                            Spacer()
+                        }
+                        
+                        HStack {
+                            Text("Low")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            
+                            Slider(value: $sensitivityValue, in: 0...100, step: 1)
+                                .accentColor(.accentColor)
+                            
+                            Text("High")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .onChange(of: sensitivityValue) { newValue in
+                        // Update microphone sensitivity in user defaults
+                        UserDefaults.standard.set(newValue, forKey: "microphoneSensitivity")
+                    }
                 }
                 
                 // MARK: - Simplified Notifications Section
@@ -125,8 +168,51 @@ struct SettingsView: View {
                     if isVoiceInputEnabled {
                         Toggle("Auto-Detect Silence", isOn: $isAutomaticSilenceDetection)
                         
+                        // Voice Activity Detection (Auto-Listening)
+                        Toggle("Auto-Listening Mode", isOn: $isVADEnabled)
+                            .onChange(of: isVADEnabled) { newValue in
+                                if newValue {
+                                    // Post notification to check permissions when enabling
+                                    NotificationCenter.default.post(name: Notification.Name("CheckVADPermissions"), object: nil)
+                                }
+                            }
+                        
+                        if isVADEnabled {
+                            VStack(alignment: .leading) {
+                                Text("Auto-Listening Sensitivity: \(Int(vadSensitivity * 100))%")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                                
+                                HStack {
+                                    Text("Less")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                    
+                                    Slider(value: $vadSensitivity, in: 0...1, step: 0.05)
+                                        .onChange(of: vadSensitivity) { newValue in
+                                            // Post notification that sensitivity changed
+                                            NotificationCenter.default.post(
+                                                name: Notification.Name("VADSensitivityChanged"),
+                                                object: nil,
+                                                userInfo: ["sensitivity": newValue]
+                                            )
+                                        }
+                                    
+                                    Text("More")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                }
+                                
+                                Text("Higher sensitivity detects softer speech but may trigger more often")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                                    .padding(.top, 4)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        
                         VStack(alignment: .leading) {
-                            Text("Sensitivity: \(Int(sensitivityValue * 100))%")
+                            Text("Manual Recording Sensitivity: \(Int(sensitivityValue * 100))%")
                                 .font(.subheadline)
                                 .foregroundColor(.gray)
                             
@@ -135,7 +221,7 @@ struct SettingsView: View {
                                     .foregroundColor(.gray)
                                 
                                 Slider(value: $sensitivityValue, in: 0...1, step: 0.05)
-                                    .onChange(of: sensitivityValue) { _, newValue in
+                                    .onChange(of: sensitivityValue) { newValue in
                                         voiceSensitivity = newValue
                                     }
                                     .onAppear {
@@ -153,14 +239,14 @@ struct SettingsView: View {
                 // MARK: - Security & Privacy Section
                 Section(header: Text("Security & Privacy")) {
                     Toggle("Face ID / Touch ID", isOn: $isFaceIDEnabled)
-                        .onChange(of: isFaceIDEnabled) { _, newValue in
+                        .onChange(of: isFaceIDEnabled) { newValue in
                             if newValue {
                                 authenticateWithBiometrics()
                             }
                         }
                     
                     Toggle("Privacy Mode", isOn: $isPrivacyModeEnabled)
-                        .onChange(of: isPrivacyModeEnabled) { _, _ in
+                        .onChange(of: isPrivacyModeEnabled) { newValue in
                             // Would hide sensitive task content when enabled
                         }
                 }
@@ -197,18 +283,24 @@ struct SettingsView: View {
                             .foregroundColor(.gray)
                     }
                     
-                    NavigationLink(destination: LicensesView(), isActive: $showingLicenses) {
+                    NavigationLink {
+                        LicensesView()
+                    } label: {
                         Text("Open Source Licenses")
                     }
                 }
                 
                 // MARK: - Legal Section
                 Section(header: Text("Legal")) {
-                    NavigationLink(destination: PrivacyPolicyView(), isActive: $showingPrivacyPolicy) {
+                    NavigationLink {
+                        PrivacyPolicyView()
+                    } label: {
                         Text("Privacy Policy")
                     }
                     
-                    NavigationLink(destination: TermsOfServiceView(), isActive: $showingTermsOfService) {
+                    NavigationLink {
+                        TermsOfServiceView()
+                    } label: {
                         Text("Terms of Service")
                     }
                 }
@@ -218,6 +310,12 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
+                        // Provide light haptic feedback when closing settings (if enabled)
+                        if isHapticsEnabled {
+                            let generator = UIImpactFeedbackGenerator(style: .light)
+                            generator.impactOccurred()
+                        }
+                        
                         dismiss()
                     }
                 }

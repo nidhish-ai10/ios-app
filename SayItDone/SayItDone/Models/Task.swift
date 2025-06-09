@@ -19,10 +19,9 @@ struct Task: Identifiable {
             return "No due date"
         }
         
-        // Format with date and time
+        // Format with month, day, and year
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
+        formatter.dateFormat = "MMMM d, yyyy"
         return formatter.string(from: dueDate)
     }
     
@@ -33,7 +32,7 @@ struct Task: Identifiable {
         }
         
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, h:mm a"
+        formatter.dateFormat = "MMMM d, yyyy"
         return formatter.string(from: dueDate)
     }
     

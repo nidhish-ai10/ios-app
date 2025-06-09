@@ -18,6 +18,11 @@ struct TasksView: View {
     @State private var permissionAlertMessage = ""
     @State private var showingRecordingIndicator = false
     @State private var listenPulse = false
+    @State private var feedbackMessage = ""
+    @State private var showingFeedback = false
+    
+    // Voice Activity Detection
+    @AppStorage("isVADEnabled") private var isVADEnabled = false
     
     // User preferences
     @AppStorage("isHapticsEnabled") private var isHapticsEnabled = true
@@ -53,6 +58,14 @@ struct TasksView: View {
             // Recording indicator with live transcription
             if showingRecordingIndicator {
                 VStack(spacing: 10) {
+                    // Status label - show whether using VAD or manual recording
+                    if speechService.isVADActive && isVADEnabled {
+                        Text("Auto-listening active")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
+                    
                     // Waveform animation (audio visualization) - more active when listening
                     HStack(spacing: 3) {
                         ForEach(0..<5) { index in
@@ -92,50 +105,34 @@ struct TasksView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
-            // Microphone button with improved visual feedback
-            Button(action: {
-                handleMicrophoneTap()
-            }) {
-                ZStack {
-                    // Pulsing background for active listening
-                    if speechService.isListening {
-                        Circle()
-                            .fill(pastelBlueDarker.opacity(0.3))
-                            .frame(width: listenPulse ? 90 : 68, height: listenPulse ? 90 : 68)
-                            .animation(
-                                Animation.easeInOut(duration: 1.0)
-                                    .repeatForever(autoreverses: true),
-                                value: listenPulse
-                            )
-                    }
-                    
-                    Circle()
-                        .fill(pastelBlueDarker)
-                        .frame(width: 68, height: 68)
-                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                    
-                    if isRecording {
-                        // Stop icon when recording
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white)
-                            .frame(width: 20, height: 20)
-                    } else {
-                        // Mic icon when not recording
-                        Image(systemName: "mic.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 28)
+            // Bottom controls area with VAD toggle only
+            HStack {
+                Spacer()
+                
+                // Enhanced VAD toggle button (centered and larger)
+                Button(action: {
+                    toggleVAD()
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: isVADEnabled ? "mic.fill" : "mic.slash.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.white)
+                        
+                        Text(isVADEnabled ? "Auto-Listen On" : "Auto-Listen Off")
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(isVADEnabled ? pastelBlueDarker : Color.gray)
+                            .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
+                    )
                 }
-                // Add pulsing animation when recording
-                .scaleEffect(isRecording ? 1.05 : 1.0)
-                .animation(
-                    isRecording ? 
-                        Animation.easeInOut(duration: 0.5).repeatForever(autoreverses: true) : 
-                        .default, 
-                    value: isRecording
-                )
+                .accessibilityLabel(isVADEnabled ? "Turn off auto-listening" : "Turn on auto-listening")
+                
+                Spacer()
             }
             .padding(.bottom, 35)
             .onAppear {
@@ -143,7 +140,7 @@ struct TasksView: View {
                     listenPulse = true
                 }
             }
-            .onChange(of: speechService.isListening) { _, newValue in
+            .onChange(of: speechService.isListening) { newValue in
                 listenPulse = newValue
                 
                 // If we stop listening, ensure the recording indicator remains visible until processing completes
@@ -155,9 +152,7 @@ struct TasksView: View {
         }
         .onAppear {
             // Set up the speech service with improved feedback
-            speechService.onRecognitionComplete = { [weak self] taskTitle, dueDate in
-                guard let self = self else { return }
-                
+            speechService.onRecognitionComplete = { taskTitle, dueDate in
                 // Immediately hide the recording indicator regardless of task result
                 withAnimation(.easeOut(duration: 0.1)) {
                     self.showingRecordingIndicator = false
@@ -171,6 +166,17 @@ struct TasksView: View {
                         // Add the task
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             self.taskManager.addTask(title: taskTitle, dueDate: dueDate)
+                            
+                            // Show feedback with date if available
+                            if let date = dueDate {
+                                let formatter = DateFormatter()
+                                formatter.dateFormat = "MMMM d, yyyy"
+                                let dateString = formatter.string(from: date)
+                                self.showFeedback(message: "Task scheduled for \(dateString)")
+                            } else {
+                                // Show confirmation for tasks without dates
+                                self.showFeedback(message: "Task added")
+                            }
                         }
                         
                         // Provide haptic feedback on task creation
@@ -178,9 +184,21 @@ struct TasksView: View {
                     }
                 }
             }
+            
+            // Always enable VAD since we removed the microphone button
+            if !isVADEnabled {
+                isVADEnabled = true
+            }
+            
+            // Start VAD
+            initializeVAD()
+            
+            // Set up notification observers
+            setupNotificationObservers()
         }
-        .onChange(of: speechService.transcribedText) { oldValue, newValue in
+        .onChange(of: speechService.transcribedText) { newValue in
             // Handle transcription text changes more efficiently
+            let oldValue = speechService.transcribedText
             if newValue.isEmpty && oldValue.isEmpty {
                 // Both empty - no change needed
                 return
@@ -193,6 +211,14 @@ struct TasksView: View {
                 }
             }
         }
+        .onChange(of: isVADEnabled) { newValue in
+            // Handle changes to VAD toggle
+            if newValue {
+                startVAD()
+            } else {
+                stopVAD()
+            }
+        }
         .alert(isPresented: $showingPermissionAlert) {
             Alert(
                 title: Text("Permission Required"),
@@ -200,6 +226,105 @@ struct TasksView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .overlay(
+            // Feedback message overlay
+            Group {
+                if showingFeedback {
+                    VStack {
+                        Spacer()
+                        Text(feedbackMessage)
+                            .font(.subheadline)
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                            )
+                            .padding(.bottom, 100)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingFeedback)
+                    }
+                }
+            }
+        )
+        .onDisappear {
+            // Clean up observers when view disappears
+            removeNotificationObservers()
+            
+            // Stop VAD if active
+            if speechService.isVADActive {
+                speechService.stopVoiceActivityDetection()
+            }
+        }
+    }
+    
+    // MARK: - Voice Activity Detection Methods
+    
+    private func initializeVAD() {
+        // Check if VAD is enabled and initialize it
+        if isVADEnabled {
+            startVAD()
+        }
+    }
+    
+    private func toggleVAD() {
+        // Toggle the VAD setting
+        isVADEnabled.toggle()
+        
+        // Provide haptic feedback
+        provideHapticFeedback(.medium)
+        
+        // Show feedback message
+        showFeedback(message: isVADEnabled ? "Auto-listening turned on" : "Auto-listening turned off")
+        
+        // Start or stop VAD based on new state
+        if isVADEnabled {
+            startVAD()
+        } else {
+            stopVAD()
+        }
+    }
+    
+    private func startVAD() {
+        // First check permissions
+        checkMicrophonePermission { micGranted in
+            if micGranted {
+                checkSpeechRecognitionPermission { speechGranted in
+                    if speechGranted {
+                        // Start VAD service
+                        self.speechService.isVADEnabled = true
+                        self.speechService.startVoiceActivityDetection()
+                        
+                        // Show feedback
+                        self.showFeedback(message: "Auto-listening active")
+                    } else {
+                        // Show permission error
+                        self.permissionAlertMessage = "Speech recognition permission is required for auto-listening."
+                        self.showingPermissionAlert = true
+                        
+                        // Revert the toggle
+                        DispatchQueue.main.async {
+                            self.isVADEnabled = false
+                        }
+                    }
+                }
+            } else {
+                // Show permission error
+                self.permissionAlertMessage = "Microphone permission is required for auto-listening."
+                self.showingPermissionAlert = true
+                
+                // Revert the toggle
+                DispatchQueue.main.async {
+                    self.isVADEnabled = false
+                }
+            }
+        }
+    }
+    
+    private func stopVAD() {
+        // Stop VAD service
+        speechService.isVADEnabled = false
+        speechService.stopVoiceActivityDetection()
     }
     
     // MARK: - Haptic Feedback
@@ -257,6 +382,11 @@ struct TasksView: View {
                     // Check speech recognition permission
                     checkSpeechRecognitionPermission { granted in
                         if granted {
+                            // If VAD is active, stop it to avoid conflicts
+                            if self.speechService.isVADActive {
+                                self.speechService.stopVoiceActivityDetection()
+                            }
+                            
                             // Start recording
                             withAnimation {
                                 isRecording = true
@@ -346,6 +476,66 @@ struct TasksView: View {
                 speechService.resetTranscription()
             }
         }
+    }
+    
+    // MARK: - Feedback methods
+    
+    // Shows a temporary feedback message
+    private func showFeedback(message: String) {
+        feedbackMessage = message
+        showingFeedback = true
+        
+        // Hide after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            withAnimation {
+                self.showingFeedback = false
+            }
+        }
+    }
+    
+    // MARK: - Notification Observers
+    
+    private func setupNotificationObservers() {
+        // Observe VAD sensitivity changes from SettingsView
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("VADSensitivityChanged"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let userInfo = notification.userInfo,
+               let sensitivity = userInfo["sensitivity"] as? Double {
+                // Update the sensitivity in the speech service
+                self.speechService.updateVADSensitivity(sensitivity)
+                
+                // Show feedback about the change
+                self.showFeedback(message: "Auto-listening sensitivity updated")
+            }
+        }
+        
+        // Observe permission check requests when VAD is enabled
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("CheckVADPermissions"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            // Check permissions for VAD
+            self.startVAD()
+        }
+    }
+    
+    // Remove notification observers when the view disappears
+    private func removeNotificationObservers() {
+        NotificationCenter.default.removeObserver(
+            self,
+            name: Notification.Name("VADSensitivityChanged"),
+            object: nil
+        )
+        
+        NotificationCenter.default.removeObserver(
+            self,
+            name: Notification.Name("CheckVADPermissions"),
+            object: nil
+        )
     }
 }
 
