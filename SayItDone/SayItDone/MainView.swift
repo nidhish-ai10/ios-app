@@ -7,12 +7,50 @@
 
 import SwiftUI
 
+// Create new views for the additional tabs
+struct NotificationsView: View {
+    var body: some View {
+        VStack {
+            Text("Notifications")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .padding(.top, 40)
+            
+            Spacer()
+            
+            Text("You have no new notifications")
+                .foregroundColor(.gray)
+            
+            Spacer()
+        }
+    }
+}
+
+struct RecordsView: View {
+    var body: some View {
+        VStack {
+            Text("Records")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .padding(.top, 40)
+            
+            Spacer()
+            
+            Text("Your task history will appear here")
+                .foregroundColor(.gray)
+            
+            Spacer()
+        }
+    }
+}
+
 struct MainView: View {
     // Retrieve stored user name and login state
     @AppStorage("userFirstName") private var userFirstName: String = ""
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
     @State private var showingProfileOptions = false
     @State private var showingSettingsView = false
+    @State private var selectedTab = 1 // Default to Home tab
     
     // Pastel color palette
     let pastelBlue = Color(red: 190/255, green: 220/255, blue: 255/255)
@@ -45,87 +83,117 @@ struct MainView: View {
     ]
     
     var body: some View {
-        NavigationView {
-            GeometryReader { geometry in
-                ZStack {
-                    Color.white.edgesIgnoringSafeArea(.all)
-                    
-                    // Main content - Now using TasksView for the main content
-                    VStack(spacing: 0) {
-                        // Top header with greeting and account button aligned horizontally
-                        HStack(alignment: .center) {
-                            // Empty spacer with width equal to account button for balance
-                            Spacer()
-                                .frame(width: 38)
-                            
-                            // Greeting and tagline section (centered)
-                            VStack(alignment: .center, spacing: 5) {
-                                // Personalized greeting
-                                HStack(spacing: 3) {
-                                    Text("Hi, ")
-                                        .font(.system(size: 28, weight: .bold))
-                                        .foregroundColor(.black)
+        TabView(selection: $selectedTab) {
+            // Notifications Tab
+            NotificationsView()
+                .tabItem {
+                    Image(systemName: "bell.fill")
+                    Text("Notifications")
+                }
+                .tag(0)
+            
+            // Home Tab (Main Tasks View)
+            NavigationView {
+                GeometryReader { geometry in
+                    ZStack {
+                        Color.white.edgesIgnoringSafeArea(.all)
+                        
+                        // Main content - Now using TasksView for the main content
+                        VStack(spacing: 0) {
+                            // Top header with greeting and account button aligned horizontally
+                            HStack(alignment: .center) {
+                                // Empty spacer with width equal to account button for balance
+                                Spacer()
+                                    .frame(width: 38)
+                                
+                                // Greeting and tagline section (centered)
+                                VStack(alignment: .center, spacing: 5) {
+                                    // Personalized greeting
+                                    HStack(spacing: 3) {
+                                        Text("Hi, ")
+                                            .font(.system(size: 28, weight: .bold))
+                                            .foregroundColor(.black)
+                                        
+                                        Text("\(userFirstName)")
+                                            .font(.system(size: 28, weight: .bold))
+                                            .foregroundColor(pastelBlueDarker)
+                                        
+                                        Text("!")
+                                            .font(.system(size: 28, weight: .bold))
+                                            .foregroundColor(.black)
+                                    }
                                     
-                                    Text("\(userFirstName)")
-                                        .font(.system(size: 28, weight: .bold))
-                                        .foregroundColor(pastelBlueDarker)
-                                    
-                                    Text("!")
-                                        .font(.system(size: 28, weight: .bold))
-                                        .foregroundColor(.black)
+                                    // Rotating tagline with animation
+                                    Text(taglines[currentTaglineIndex])
+                                        .font(.system(size: 14, weight: .regular))
+                                        .foregroundColor(.gray)
+                                        .opacity(taglineOpacity)
+                                        .animation(.easeInOut(duration: 0.7), value: taglineOpacity)
+                                        .frame(height: 20) // Fixed height to prevent layout shifts
+                                }
+                                .frame(maxWidth: .infinity)
+                                .onAppear {
+                                    // Start the tagline rotation
+                                    startTaglineRotation()
                                 }
                                 
-                                // Rotating tagline with animation
-                                Text(taglines[currentTaglineIndex])
-                                    .font(.system(size: 14, weight: .regular))
-                                    .foregroundColor(.gray)
-                                    .opacity(taglineOpacity)
-                                    .animation(.easeInOut(duration: 0.7), value: taglineOpacity)
-                                    .frame(height: 20) // Fixed height to prevent layout shifts
+                                // Account button
+                                Button(action: {
+                                    showingProfileOptions = true
+                                }) {
+                                    Image(systemName: "person.crop.circle")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(pastelBlueDarker)
+                                }
+                                .frame(width: 38)
                             }
-                            .frame(maxWidth: .infinity)
-                            .onAppear {
-                                // Start the tagline rotation
-                                startTaglineRotation()
-                            }
+                            .frame(maxWidth: .infinity, alignment: .top)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                            .padding(.bottom, 16)
                             
-                            // Account button
-                            Button(action: {
-                                showingProfileOptions = true
-                            }) {
-                                Image(systemName: "person.crop.circle")
-                                    .font(.system(size: 22))
-                                    .foregroundColor(pastelBlueDarker)
-                            }
-                            .frame(width: 38)
+                            // TasksView for the main task management functionality
+                            TasksView()
                         }
-                        .frame(maxWidth: .infinity, alignment: .top)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, 16)
-                        
-                        // TasksView for the main task management functionality
-                        TasksView()
                     }
                 }
+                .navigationBarHidden(true)
             }
-            .navigationBarHidden(true)
-            .sheet(isPresented: $showingProfileOptions) {
-                AccountSheetView(isLoggedIn: $isLoggedIn, userFirstName: $userFirstName)
+            .tabItem {
+                Image(systemName: "house.fill")
+                Text("Home")
             }
-            .sheet(isPresented: $showingSettingsView) {
-                SettingsView()
-            }
-            .onAppear {
-                setupNotificationObservers()
-            }
-            .onDisappear {
-                removeNotificationObservers()
-            }
+            .tag(1)
+            
+            // Records Tab
+            RecordsView()
+                .tabItem {
+                    Image(systemName: "doc.text.fill")
+                    Text("Records")
+                }
+                .tag(2)
+        }
+        .accentColor(pastelBlueDarker) // Set the accent color for the tab bar
+        .sheet(isPresented: $showingProfileOptions) {
+            AccountSheetView(isLoggedIn: $isLoggedIn, userFirstName: $userFirstName)
+        }
+        .sheet(isPresented: $showingSettingsView) {
+            SettingsView()
+        }
+        .onAppear {
+            setupNotificationObservers()
+            
+            // Set tab bar appearance
+            let appearance = UITabBarAppearance()
+            appearance.configureWithDefaultBackground()
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
+        .onDisappear {
+            removeNotificationObservers()
         }
     }
     
-    // Add this method to the MainView struct
     // Method to handle tagline rotation with animation
     private func startTaglineRotation() {
         // Create a repeating timer to change taglines
