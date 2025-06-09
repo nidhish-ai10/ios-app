@@ -158,15 +158,21 @@ struct TasksView: View {
             speechService.onRecognitionComplete = { taskTitle, dueDate in
                 // Add the recognized task with animation
                 if !taskTitle.isEmpty {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        taskManager.addTask(title: taskTitle, dueDate: dueDate)
-                        // Hide recording indicator immediately when task is added
+                    // First hide the recording indicator with immediate animation
+                    withAnimation(.easeOut(duration: 0.2)) {
                         showingRecordingIndicator = false
                         isRecording = false
                     }
                     
-                    // Provide haptic feedback on task creation
-                    provideHapticFeedback(.success)
+                    // Then add the task after a short delay to ensure the streaming box is gone
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            taskManager.addTask(title: taskTitle, dueDate: dueDate)
+                        }
+                        
+                        // Provide haptic feedback on task creation
+                        provideHapticFeedback(.success)
+                    }
                 } else {
                     // If no task was created, hide UI elements
                     withAnimation(.easeOut(duration: 0.3)) {

@@ -256,6 +256,11 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         processingDebounceTimer?.invalidate()
         processingDebounceTimer = nil
         
+        // Immediately set UI state to not listening - this helps hide the streaming box faster
+        DispatchQueue.main.async {
+            self.isListening = false
+        }
+        
         // Stop audio engine if running
         if audioEngine.isRunning {
             audioEngine.stop()
@@ -265,7 +270,6 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             // Use main thread for UI-related state changes
             DispatchQueue.main.async {
                 self.isRecording = false
-                self.isListening = false
                 
                 // Prevent duplicate processing
                 if !self.isProcessingCompletion {
