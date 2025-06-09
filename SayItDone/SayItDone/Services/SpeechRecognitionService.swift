@@ -261,6 +261,14 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             self.isListening = false
         }
         
+        // Store current text before clearing it
+        let currentText = transcribedText
+        
+        // Immediately clear transcribed text to ensure UI updates
+        DispatchQueue.main.async {
+            self.transcribedText = ""
+        }
+        
         // Stop audio engine if running
         if audioEngine.isRunning {
             audioEngine.stop()
@@ -276,12 +284,9 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                     self.isProcessingCompletion = true
                     
                     // Process any final transcription if we have text and it hasn't been processed
-                    if !self.transcribedText.isEmpty && self.transcribedText != self.lastProcessedText {
-                        self.lastProcessedText = self.transcribedText
-                        let (title, dueDate) = self.processTaskText(self.transcribedText)
-                        
-                        // Clear transcribed text after processing
-                        self.transcribedText = ""
+                    if !currentText.isEmpty && currentText != self.lastProcessedText {
+                        self.lastProcessedText = currentText
+                        let (title, dueDate) = self.processTaskText(currentText)
                         
                         // Call completion handler with the extracted task
                         self.onRecognitionComplete?(title, dueDate)

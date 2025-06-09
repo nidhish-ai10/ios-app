@@ -13,8 +13,22 @@ class TaskManager: ObservableObject {
     
     // Add a new task
     func addTask(title: String, dueDate: Date? = nil) {
-        let newTask = Task(title: title, dueDate: dueDate)
-        tasks.append(newTask)
+        // Skip empty tasks
+        if title.isEmpty {
+            return
+        }
+        
+        // Prevent duplicate tasks (check if a task with the same title was added in the last 3 seconds)
+        let recentTime = Date().timeIntervalSince1970 - 3
+        let hasDuplicate = tasks.contains { task in
+            task.title.lowercased() == title.lowercased() && 
+            task.createdAt.timeIntervalSince1970 > recentTime
+        }
+        
+        if !hasDuplicate {
+            let newTask = Task(title: title, dueDate: dueDate)
+            tasks.append(newTask)
+        }
     }
     
     // Remove a task at a specific index

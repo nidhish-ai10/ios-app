@@ -155,29 +155,26 @@ struct TasksView: View {
         }
         .onAppear {
             // Set up the speech service with improved feedback
-            speechService.onRecognitionComplete = { taskTitle, dueDate in
-                // Add the recognized task with animation
+            speechService.onRecognitionComplete = { [weak self] taskTitle, dueDate in
+                guard let self = self else { return }
+                
+                // Immediately hide the recording indicator regardless of task result
+                withAnimation(.easeOut(duration: 0.1)) {
+                    self.showingRecordingIndicator = false
+                    self.isRecording = false
+                }
+                
+                // Only process non-empty tasks
                 if !taskTitle.isEmpty {
-                    // First hide the recording indicator with immediate animation
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showingRecordingIndicator = false
-                        isRecording = false
-                    }
-                    
-                    // Then add the task after a short delay to ensure the streaming box is gone
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    // Small delay to ensure UI update completes first
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        // Add the task
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            taskManager.addTask(title: taskTitle, dueDate: dueDate)
+                            self.taskManager.addTask(title: taskTitle, dueDate: dueDate)
                         }
                         
                         // Provide haptic feedback on task creation
-                        provideHapticFeedback(.success)
-                    }
-                } else {
-                    // If no task was created, hide UI elements
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        showingRecordingIndicator = false
-                        isRecording = false
+                        self.provideHapticFeedback(.success)
                     }
                 }
             }
@@ -189,12 +186,10 @@ struct TasksView: View {
                 return
             }
             
-            if !newValue.isEmpty {
-                // Show recording indicator whenever we have text
-                if !showingRecordingIndicator {
-                    withAnimation(.easeIn(duration: 0.2)) {
-                        showingRecordingIndicator = true
-                    }
+            if !newValue.isEmpty && showingRecordingIndicator == false {
+                // Show recording indicator when we have text
+                withAnimation(.easeIn(duration: 0.2)) {
+                    showingRecordingIndicator = true
                 }
             }
         }
