@@ -56,32 +56,6 @@ struct MainView: View {
     let pastelBlue = Color(red: 190/255, green: 220/255, blue: 255/255)
     let pastelBlueDarker = Color(red: 150/255, green: 190/255, blue: 255/255)
     
-    // Add these state variables after the existing state variables
-    @State private var currentTaglineIndex = 0
-    @State private var taglineOpacity = 1.0
-    @State private var isAnimating = false
-    
-    // Add the taglines array below the color definitions
-    // Collection of taglines to display in rotation
-    let taglines = [
-        "Structure your day, your way.",
-        "Own your time, your style.",
-        "Plan smart. Live better.",
-        "Design your day with ease.",
-        "Your day, your direction.",
-        "Organize life. Your way.",
-        "Make time work for you.",
-        "Master your minutes.",
-        "Take charge of today.",
-        "Create calm in your chaos.",
-        "Productivity, personalized.",
-        "Shape your schedule.",
-        "Every task, on your terms.",
-        "Simplify. Plan. Achieve.",
-        "Because your time matters.",
-        "Streamline your schedule."
-    ]
-    
     var body: some View {
         TabView(selection: $selectedTab) {
             // Notifications Tab
@@ -100,42 +74,9 @@ struct MainView: View {
                         
                         // Main content - Now using TasksView for the main content
                         VStack(spacing: 0) {
-                            // Top header with greeting and account button aligned horizontally
+                            // Top bar with account button
                             HStack(alignment: .center) {
-                                // Empty spacer with width equal to account button for balance
                                 Spacer()
-                                    .frame(width: 38)
-                                
-                                // Greeting and tagline section (centered)
-                                VStack(alignment: .center, spacing: 5) {
-                                    // Personalized greeting
-                                    HStack(spacing: 3) {
-                                        Text("Hi, ")
-                                            .font(.system(size: 28, weight: .bold))
-                                            .foregroundColor(.black)
-                                        
-                                        Text("\(userFirstName)")
-                                            .font(.system(size: 28, weight: .bold))
-                                            .foregroundColor(pastelBlueDarker)
-                                        
-                                        Text("!")
-                                            .font(.system(size: 28, weight: .bold))
-                                            .foregroundColor(.black)
-                                    }
-                                    
-                                    // Rotating tagline with animation
-                                    Text(taglines[currentTaglineIndex])
-                                        .font(.system(size: 14, weight: .regular))
-                                        .foregroundColor(.gray)
-                                        .opacity(taglineOpacity)
-                                        .animation(.easeInOut(duration: 0.7), value: taglineOpacity)
-                                        .frame(height: 20) // Fixed height to prevent layout shifts
-                                }
-                                .frame(maxWidth: .infinity)
-                                .onAppear {
-                                    // Start the tagline rotation
-                                    startTaglineRotation()
-                                }
                                 
                                 // Account button
                                 Button(action: {
@@ -145,12 +86,11 @@ struct MainView: View {
                                         .font(.system(size: 22))
                                         .foregroundColor(pastelBlueDarker)
                                 }
-                                .frame(width: 38)
+                                .padding(.trailing, 16)
                             }
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .padding(.horizontal, 16)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                             .padding(.top, 16)
-                            .padding(.bottom, 16)
+                            .padding(.bottom, 8)
                             
                             // TasksView for the main task management functionality
                             TasksView()
@@ -191,44 +131,6 @@ struct MainView: View {
         }
         .onDisappear {
             removeNotificationObservers()
-        }
-    }
-    
-    // Method to handle tagline rotation with animation
-    private func startTaglineRotation() {
-        // Create a repeating timer to change taglines
-        Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
-            // Don't start new animation if one is in progress
-            if !isAnimating {
-                isAnimating = true
-                
-                // Fade out current tagline
-                withAnimation(.easeOut(duration: 0.7)) {
-                    taglineOpacity = 0.0
-                }
-                
-                // After fade out, change the tagline and fade in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                    // Move to next tagline
-                    currentTaglineIndex = (currentTaglineIndex + 1) % taglines.count
-                    
-                    // Fade in new tagline
-                    withAnimation(.easeIn(duration: 0.7)) {
-                        taglineOpacity = 1.0
-                    }
-                    
-                    // Animation complete
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                        isAnimating = false
-                    }
-                }
-            }
-        }
-        
-        // Trigger timer immediately for first cycle
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            // Ensure animation starts with the current tagline visible
-            taglineOpacity = 1.0
         }
     }
     
