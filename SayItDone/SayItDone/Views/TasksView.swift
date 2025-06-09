@@ -27,41 +27,10 @@ struct TasksView: View {
             // Tasks section
             ScrollView {
                 if taskManager.tasks.isEmpty {
-                    // Empty state with no tasks
-                    VStack(spacing: 16) {
-                        // Checklist icon container
-                        VStack(spacing: 4) {
-                            // Completed checkmark
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.gray.opacity(0.5))
-                                    .font(.system(size: 20))
-                                
-                                Rectangle()
-                                    .frame(width: 20, height: 1)
-                                    .foregroundColor(.gray.opacity(0.5))
-                            }
-                            
-                            // Uncompleted checkmark
-                            HStack {
-                                Image(systemName: "circle")
-                                    .foregroundColor(.gray.opacity(0.5))
-                                    .font(.system(size: 20))
-                                
-                                Rectangle()
-                                    .frame(width: 20, height: 1)
-                                    .foregroundColor(.gray.opacity(0.5))
-                            }
-                        }
-                        .padding(.bottom, 8)
-                        
-                        Text("No tasks yet!")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(.gray)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.bottom, 100) // Add padding to account for the microphone button space
-                    .frame(minHeight: UIScreen.main.bounds.height - 200) // Set minimum height to ensure vertical centering
+                    // Empty space when no tasks
+                    Spacer()
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: UIScreen.main.bounds.height - 200)
                 } else {
                     // Task list
                     LazyVStack(spacing: 12) {
