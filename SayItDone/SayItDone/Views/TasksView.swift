@@ -67,7 +67,7 @@ struct TasksView: View {
                          (speechService.isListening ? "Listening..." : "Say something...") : 
                          speechService.transcribedText)
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                         .lineLimit(3)
                         .multilineTextAlignment(.center)
                         .frame(minHeight: 60)
@@ -80,7 +80,7 @@ struct TasksView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(UIColor.systemBackground))
+                        .fill(Color(UIColor.secondarySystemBackground))
                         .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
                 )
                 .padding(.horizontal, 20)

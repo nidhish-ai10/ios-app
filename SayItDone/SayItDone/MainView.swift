@@ -19,10 +19,12 @@ struct NotificationsView: View {
             Spacer()
             
             Text("You have no new notifications")
-                .foregroundColor(.gray)
+                .foregroundColor(.secondary)
             
             Spacer()
         }
+        .background(Color(UIColor.systemBackground))
+        .edgesIgnoringSafeArea(.all)
     }
 }
 
@@ -37,10 +39,12 @@ struct RecordsView: View {
             Spacer()
             
             Text("Your task history will appear here")
-                .foregroundColor(.gray)
+                .foregroundColor(.secondary)
             
             Spacer()
         }
+        .background(Color(UIColor.systemBackground))
+        .edgesIgnoringSafeArea(.all)
     }
 }
 
@@ -48,6 +52,7 @@ struct MainView: View {
     // Retrieve stored user name and login state
     @AppStorage("userFirstName") private var userFirstName: String = ""
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
+    @AppStorage("isDarkMode") private var isDarkMode = false
     @State private var showingProfileOptions = false
     @State private var showingSettingsView = false
     @State private var selectedTab = 1 // Default to Home tab
@@ -70,7 +75,9 @@ struct MainView: View {
             NavigationView {
                 GeometryReader { geometry in
                     ZStack {
-                        Color.white.edgesIgnoringSafeArea(.all)
+                        // Use dynamic background color based on color scheme
+                        Color(UIColor.systemBackground)
+                            .edgesIgnoringSafeArea(.all)
                         
                         // Main content - Now using TasksView for the main content
                         VStack(spacing: 0) {
@@ -134,10 +141,24 @@ struct MainView: View {
             appearance.configureWithDefaultBackground()
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
+            
+            // Apply dark mode setting on appear
+            setAppearance()
+        }
+        .onChange(of: isDarkMode) { _, _ in
+            setAppearance()
         }
         .onDisappear {
             removeNotificationObservers()
         }
+    }
+    
+    // Set the app appearance based on dark mode setting
+    private func setAppearance() {
+        let scenes = UIApplication.shared.connectedScenes
+        let windowScene = scenes.first as? UIWindowScene
+        let window = windowScene?.windows.first
+        window?.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
     }
     
     private func setupNotificationObservers() {
