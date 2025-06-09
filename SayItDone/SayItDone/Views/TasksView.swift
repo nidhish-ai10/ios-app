@@ -160,7 +160,8 @@ struct TasksView: View {
                 if !taskTitle.isEmpty {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         taskManager.addTask(title: taskTitle, dueDate: dueDate)
-                        // Keep the streaming box visible when task is added
+                        // Hide recording indicator immediately when task is added
+                        showingRecordingIndicator = false
                         isRecording = false
                     }
                     
