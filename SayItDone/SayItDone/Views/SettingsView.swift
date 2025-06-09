@@ -20,23 +20,14 @@ struct SettingsView: View {
     @AppStorage("isHapticsEnabled") private var isHapticsEnabled = true
     @AppStorage("isSoundEnabled") private var isSoundEnabled = true
     
-    // Notifications
-    @AppStorage("isReminderEnabled") private var isReminderEnabled = true
-    @AppStorage("isOverdueNotificationEnabled") private var isOverdueNotificationEnabled = true
-    @AppStorage("isBadgeEnabled") private var isBadgeEnabled = true
+    // Simplified Notifications
+    @AppStorage("isNotificationsEnabled") private var isNotificationsEnabled = true
     
     // Voice Input
     @AppStorage("isVoiceInputEnabled") private var isVoiceInputEnabled = true
     @State private var sensitivityValue: Double = 0.7
     @AppStorage("voiceSensitivity") private var voiceSensitivity: Double = 0.7
     @AppStorage("isAutomaticSilenceDetection") private var isAutomaticSilenceDetection = true
-    
-    // Task Management
-    @State private var selectedDefaultTime = Date()
-    @AppStorage("defaultDueTimeHour") private var defaultDueTimeHour: Int = 17
-    @AppStorage("defaultDueTimeMinute") private var defaultDueTimeMinute: Int = 0
-    @State private var sortOption = 0
-    @AppStorage("defaultSortOption") private var defaultSortOption: Int = 0
     
     // Security
     @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled = false
@@ -122,13 +113,9 @@ struct SettingsView: View {
                     Toggle("Sound Effects", isOn: $isSoundEnabled)
                 }
                 
-                // MARK: - Notifications Section
+                // MARK: - Simplified Notifications Section
                 Section(header: Text("Notifications")) {
-                    Toggle("Task Reminders", isOn: $isReminderEnabled)
-                    
-                    Toggle("Overdue Notifications", isOn: $isOverdueNotificationEnabled)
-                    
-                    Toggle("App Badge", isOn: $isBadgeEnabled)
+                    Toggle("Enable Notifications", isOn: $isNotificationsEnabled)
                 }
                 
                 // MARK: - Voice Input Section
@@ -160,47 +147,6 @@ struct SettingsView: View {
                             }
                         }
                         .padding(.vertical, 4)
-                    }
-                }
-                
-                // MARK: - Task Management Section
-                Section(header: Text("Task Management")) {
-                    VStack(alignment: .leading) {
-                        Text("Default Due Time")
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
-                        
-                        DatePicker("", selection: $selectedDefaultTime, displayedComponents: .hourAndMinute)
-                            .datePickerStyle(WheelDatePickerStyle())
-                            .labelsHidden()
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .onAppear {
-                                var components = DateComponents()
-                                components.hour = defaultDueTimeHour
-                                components.minute = defaultDueTimeMinute
-                                if let date = Calendar.current.date(from: components) {
-                                    selectedDefaultTime = date
-                                }
-                            }
-                            .onChange(of: selectedDefaultTime) { _, newValue in
-                                let components = Calendar.current.dateComponents([.hour, .minute], from: newValue)
-                                defaultDueTimeHour = components.hour ?? 17
-                                defaultDueTimeMinute = components.minute ?? 0
-                            }
-                    }
-                    
-                    Picker("Default Sort Order", selection: $sortOption) {
-                        Text("Due Date").tag(0)
-                        Text("Priority").tag(1)
-                        Text("Creation Date").tag(2)
-                        Text("Alphabetical").tag(3)
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .onChange(of: sortOption) { _, newValue in
-                        defaultSortOption = newValue
-                    }
-                    .onAppear {
-                        sortOption = defaultSortOption
                     }
                 }
                 
