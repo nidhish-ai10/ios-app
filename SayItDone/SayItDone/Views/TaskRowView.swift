@@ -14,13 +14,18 @@ struct TaskRowView: View {
     // State for UI interactions
     @State private var isPressed = false
     
+    // User preferences
+    @AppStorage("isHapticsEnabled") private var isHapticsEnabled = true
+    
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             // Task completion circle with improved interaction
             Button(action: {
-                // Provide haptic feedback
-                let generator = UIImpactFeedbackGenerator(style: .light)
-                generator.impactOccurred()
+                // Provide haptic feedback when enabled
+                if isHapticsEnabled {
+                    let generator = UIImpactFeedbackGenerator(style: .light)
+                    generator.impactOccurred()
+                }
                 
                 // Add a small delay for visual feedback before deletion
                 withAnimation {

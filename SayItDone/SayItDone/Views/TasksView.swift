@@ -19,6 +19,9 @@ struct TasksView: View {
     @State private var showingRecordingIndicator = false
     @State private var listenPulse = false
     
+    // User preferences
+    @AppStorage("isHapticsEnabled") private var isHapticsEnabled = true
+    
     // Color for our app
     let pastelBlueDarker = Color(red: 150/255, green: 190/255, blue: 255/255)
     
@@ -37,6 +40,7 @@ struct TasksView: View {
                         ForEach(taskManager.tasks) { task in
                             TaskRowView(task: task) {
                                 // Delete task action
+                                provideHapticFeedback(.medium)
                                 taskManager.removeTask(with: task.id)
                             }
                         }
@@ -161,8 +165,7 @@ struct TasksView: View {
                     }
                     
                     // Provide haptic feedback on task creation
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
+                    provideHapticFeedback(.success)
                 } else {
                     // If no task was created, hide UI elements
                     withAnimation(.easeOut(duration: 0.3)) {
@@ -197,11 +200,44 @@ struct TasksView: View {
         }
     }
     
+    // MARK: - Haptic Feedback
+    
+    // Function to provide haptic feedback when enabled
+    private func provideHapticFeedback(_ feedbackType: HapticFeedbackType) {
+        guard isHapticsEnabled else { return }
+        
+        switch feedbackType {
+        case .light:
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+        case .medium:
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+        case .heavy:
+            let generator = UIImpactFeedbackGenerator(style: .heavy)
+            generator.impactOccurred()
+        case .success:
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+        case .error:
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+        case .warning:
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
+        }
+    }
+    
+    // Enum to define haptic feedback types
+    private enum HapticFeedbackType {
+        case light, medium, heavy
+        case success, warning, error
+    }
+    
     // Handle microphone button tap
     private func handleMicrophoneTap() {
         // Provide haptic feedback when tapping microphone
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        provideHapticFeedback(.medium)
         
         if isRecording {
             // Stop recording
@@ -227,12 +263,14 @@ struct TasksView: View {
                             speechService.startRecording()
                         } else {
                             // Show permission alert
+                            provideHapticFeedback(.error)
                             permissionAlertMessage = "Please allow speech recognition in Settings to use this feature."
                             showingPermissionAlert = true
                         }
                     }
                 } else {
                     // Show permission alert
+                    provideHapticFeedback(.error)
                     permissionAlertMessage = "Please allow microphone access in Settings to use this feature."
                     showingPermissionAlert = true
                 }
@@ -300,8 +338,7 @@ struct TasksView: View {
                 }
                 
                 // Provide haptic feedback on task creation
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
+                provideHapticFeedback(.success)
                 
                 // Reset transcription to allow for new tasks
                 speechService.resetTranscription()
