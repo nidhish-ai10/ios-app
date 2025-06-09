@@ -82,9 +82,15 @@ struct MainView: View {
                                 Button(action: {
                                     showingProfileOptions = true
                                 }) {
-                                    Image(systemName: "person.crop.circle")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(pastelBlueDarker)
+                                    Circle()
+                                        .fill(pastelBlueDarker)
+                                        .frame(width: 36, height: 36)
+                                        .overlay(
+                                            Text(String(userFirstName.prefix(1)).uppercased())
+                                                .foregroundColor(.white)
+                                                .font(.system(size: 16, weight: .medium))
+                                        )
+                                        .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
                                 }
                                 .padding(.trailing, 16)
                             }
