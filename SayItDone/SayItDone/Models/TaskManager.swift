@@ -9,7 +9,7 @@ import Foundation
 import Combine
 
 class TaskManager: ObservableObject {
-    @Published var tasks: [Task] = []
+    @Published var tasks: [TodoTask] = []
     
     // Add a new task
     func addTask(title: String, dueDate: Date? = nil) {
@@ -26,7 +26,7 @@ class TaskManager: ObservableObject {
         }
         
         if !hasDuplicate {
-            let newTask = Task(title: title, dueDate: dueDate)
+            let newTask = TodoTask(title: title, dueDate: dueDate)
             tasks.append(newTask)
         }
     }

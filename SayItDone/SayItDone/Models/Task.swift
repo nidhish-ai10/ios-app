@@ -7,11 +7,16 @@
 
 import Foundation
 
-struct Task: Identifiable {
+struct TodoTask: Identifiable {
     let id: UUID = UUID()
     let title: String
     let dueDate: Date?
     let createdAt: Date = Date()
+    
+    init(title: String, dueDate: Date? = nil) {
+        self.title = title
+        self.dueDate = dueDate
+    }
     
     // Formatted due date string with smart formatting
     var formattedDueDate: String {

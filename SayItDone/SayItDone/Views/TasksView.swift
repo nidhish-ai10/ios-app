@@ -80,8 +80,8 @@ struct TasksView: View {
                     }
                     
                     // Transcription text with improved visibility and status indicator
-                    Text(speechService.transcribedText.isEmpty ? 
-                         (speechService.isListening ? "Listening..." : "Say something...") : 
+                    Text(speechService.transcribedText.isEmpty ?
+                         (speechService.isListening ? "Listening..." : "Say something...") :
                          speechService.transcribedText)
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
@@ -568,8 +568,8 @@ struct WaveformAnimationModifier: ViewModifier {
     
     func body(content: Content) -> some View {
         content
-            .scaleEffect(x: 1, y: isAnimating ? 
-                        (isActive ? 0.5 + CGFloat.random(in: 0.5...1.0) : 0.7) : 
+            .scaleEffect(x: 1, y: isAnimating ?
+                        (isActive ? 0.5 + CGFloat.random(in: 0.5...1.0) : 0.7) :
                         0.3)
             .animation(
                 Animation.easeInOut(duration: isActive ? 0.5 : 1.0)
@@ -585,4 +585,4 @@ struct WaveformAnimationModifier: ViewModifier {
 
 #Preview {
     TasksView()
-} 
+}

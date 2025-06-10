@@ -102,7 +102,7 @@ struct SettingsView: View {
                 // MARK: - Preferences Section
                 Section(header: Text("Preferences")) {
                     Toggle("Dark Mode", isOn: $isDarkMode)
-                        .onChange(of: isDarkMode) { newValue in
+                        .onChange(of: isDarkMode) { oldValue, newValue in
                             // Apply the color scheme change using the modern API
                             let scenes = UIApplication.shared.connectedScenes
                             let windowScene = scenes.first as? UIWindowScene
@@ -150,7 +150,7 @@ struct SettingsView: View {
                                 .foregroundColor(.gray)
                         }
                     }
-                    .onChange(of: sensitivityValue) { newValue in
+                    .onChange(of: sensitivityValue) { oldValue, newValue in
                         // Update microphone sensitivity in user defaults
                         UserDefaults.standard.set(newValue, forKey: "microphoneSensitivity")
                     }
@@ -170,7 +170,7 @@ struct SettingsView: View {
                         
                         // Voice Activity Detection (Auto-Listening)
                         Toggle("Auto-Listening Mode", isOn: $isVADEnabled)
-                            .onChange(of: isVADEnabled) { newValue in
+                            .onChange(of: isVADEnabled) { oldValue, newValue in
                                 if newValue {
                                     // Post notification to check permissions when enabling
                                     NotificationCenter.default.post(name: Notification.Name("CheckVADPermissions"), object: nil)
@@ -189,7 +189,7 @@ struct SettingsView: View {
                                         .foregroundColor(.gray)
                                     
                                     Slider(value: $vadSensitivity, in: 0...1, step: 0.05)
-                                        .onChange(of: vadSensitivity) { newValue in
+                                        .onChange(of: vadSensitivity) { oldValue, newValue in
                                             // Post notification that sensitivity changed
                                             NotificationCenter.default.post(
                                                 name: Notification.Name("VADSensitivityChanged"),
@@ -221,7 +221,7 @@ struct SettingsView: View {
                                     .foregroundColor(.gray)
                                 
                                 Slider(value: $sensitivityValue, in: 0...1, step: 0.05)
-                                    .onChange(of: sensitivityValue) { newValue in
+                                    .onChange(of: sensitivityValue) { oldValue, newValue in
                                         voiceSensitivity = newValue
                                     }
                                     .onAppear {
@@ -239,14 +239,14 @@ struct SettingsView: View {
                 // MARK: - Security & Privacy Section
                 Section(header: Text("Security & Privacy")) {
                     Toggle("Face ID / Touch ID", isOn: $isFaceIDEnabled)
-                        .onChange(of: isFaceIDEnabled) { newValue in
+                        .onChange(of: isFaceIDEnabled) { oldValue, newValue in
                             if newValue {
                                 authenticateWithBiometrics()
                             }
                         }
                     
                     Toggle("Privacy Mode", isOn: $isPrivacyModeEnabled)
-                        .onChange(of: isPrivacyModeEnabled) { newValue in
+                        .onChange(of: isPrivacyModeEnabled) { oldValue, newValue in
                             // Would hide sensitive task content when enabled
                         }
                 }
