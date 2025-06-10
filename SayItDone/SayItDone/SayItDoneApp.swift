@@ -10,8 +10,8 @@ import SwiftUI
 @main
 struct SayItDoneApp: App {
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
-    @AppStorage("userFirstName") private var userFirstName: String = ""
     @AppStorage("isDarkMode") private var isDarkMode = false
+    @StateObject private var authService = AuthenticationService()
     
     init() {
         // Apply dark mode setting on app launch using the modern API
@@ -36,17 +36,15 @@ struct SayItDoneApp: App {
                         setAppearance()
                     }
             } else {
-                // User is not logged in, show the login/welcome view
-                ContentView()
+                // User is not logged in, show the login view
+                LoginView()
                     .onChange(of: isDarkMode) { newValue in
                         // Update appearance when dark mode setting changes
                         setAppearance()
                     }
-                    .onDisappear {
-                        // When ContentView disappears after submission, set the app storage values
-                        if !userFirstName.isEmpty {
-                            isLoggedIn = true
-                        }
+                    .onChange(of: authService.isAuthenticated) { newValue in
+                        // Update login state when authentication changes
+                        isLoggedIn = newValue
                     }
             }
         }
