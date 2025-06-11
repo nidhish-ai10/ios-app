@@ -153,22 +153,31 @@ struct TasksView: View {
                     DispatchQueue.main.async {
                         showingRecordingIndicator = false
                         
-                        // Use TaskManager's method to add task (always succeeds now)
+                        // Process the task using the duplicate-prevention method
                         let result = taskManager.addTaskIfNotDuplicate(title: finalText, dueDate: dueDate)
                         print("TASK: Addition result: success=\(result.success)")
                         
-                        // Always show success feedback since we always add tasks
-                        showFeedback(message: "Task added!")
-                        provideHapticFeedback(.success)
-                        
-                        // Force UI refresh for immediate visibility
-                        forceUpdateTasks.toggle()
+                        if result.success {
+                            // Success feedback - task was added
+                            showFeedback(message: "Task added!")
+                            provideHapticFeedback(.success)
+                        } else {
+                            // Duplicate task feedback
+                            showFeedback(message: "Similar task already exists")
+                            provideHapticFeedback(.warning)
+                        }
                         
                         // CRITICAL FIX: Restart VAD immediately after processing to allow continuous task addition
                         processingTask = false
                         
                         // Force restart VAD to ensure it works for multiple tasks
                         speechService.forceRestartVAD()
+                        
+                        // Refresh UI to show the new task immediately
+                        DispatchQueue.main.async {
+                            // Force UI refresh
+                            self.objectWillChange.send()
+                        }
                     }
                 } else {
                     DispatchQueue.main.async {
