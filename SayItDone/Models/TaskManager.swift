@@ -257,8 +257,11 @@ class TaskManager: ObservableObject {
     func addTaskDirectly(_ task: Task) {
         print("DEBUG: Adding task directly with ID: \(task.id), title: \(task.title)")
         
-        // Add task directly to the array without any async delays
+        // SINGLE TASK MODE: Clear all existing tasks first
+        tasks.removeAll()
+        
+        // Add task directly as the only task
         tasks.insert(task, at: 0) // Add at the top for immediate visibility
-        print("DEBUG: Task added directly, current task count: \(tasks.count)")
+        print("DEBUG: Single task mode - replaced all tasks with new one")
     }
 } 

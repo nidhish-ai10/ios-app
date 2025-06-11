@@ -55,11 +55,11 @@ struct TasksView: View {
                                 .font(.system(size: 70))
                                 .foregroundColor(.gray.opacity(0.5))
                             
-                            Text("No tasks yet")
+                            Text("Ready for your tasks")
                                 .font(.title2)
                                 .foregroundColor(.gray)
                             
-                            Text("Your tasks will appear here")
+                            Text("Just speak to add one")
                                 .font(.subheadline)
                                 .foregroundColor(.gray.opacity(0.8))
                             
@@ -68,10 +68,11 @@ struct TasksView: View {
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: UIScreen.main.bounds.height - 200)
                     } else {
-                        // Task list
-                        LazyVStack(spacing: 12) {
-                            ForEach(taskManager.tasks) { task in
-                                TaskRowView(task: task) { task in
+                        // Task list - CRITICAL FIX: Only show the latest/single task
+                        VStack(spacing: 12) {
+                            // Only display the first task in the list
+                            if let latestTask = taskManager.tasks.first {
+                                TaskRowView(task: latestTask) { task in
                                     // Delete task action
                                     provideHapticFeedback(.medium)
                                     taskManager.removeTask(task)
@@ -79,10 +80,10 @@ struct TasksView: View {
                                     // Show undo button
                                     showUndoOption()
                                 }
-                                .id(task.id)
-                                .background(newTaskID == task.id ? Color.yellow.opacity(0.3) : Color.clear)
+                                .id(latestTask.id)
+                                .background(newTaskID == latestTask.id ? Color.yellow.opacity(0.3) : Color.clear)
                                 .cornerRadius(8)
-                                .scaleEffect(newTaskID == task.id && showingNewTaskAnimation ? 1.05 : 1.0)
+                                .scaleEffect(newTaskID == latestTask.id && showingNewTaskAnimation ? 1.05 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingNewTaskAnimation)
                             }
                         }
@@ -179,9 +180,12 @@ struct TasksView: View {
                         let newTask = Task(id: UUID(), title: finalText, dueDate: dueDate)
                         print("CRITICAL DEBUG: Created task with ID: \(newTask.id)")
                         
-                        // EMERGENCY FIX: Directly modify the tasks array
+                        // SINGLE TASK MODE: Clear existing tasks and only show the new one
+                        taskManager.tasks.removeAll()
+                        
+                        // Add the new task as the only task
                         taskManager.tasks.insert(newTask, at: 0)
-                        print("CRITICAL DEBUG: Task inserted at index 0, total tasks: \(taskManager.tasks.count)")
+                        print("CRITICAL DEBUG: Single task inserted, cleared all others")
                         
                         // FORCE UI update
                         forceUpdateTasks.toggle()
