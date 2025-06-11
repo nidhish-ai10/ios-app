@@ -13,6 +13,7 @@ import Combine
 struct TasksView: View {
     @StateObject private var taskManager = TaskManager()
     @StateObject private var speechService = SpeechRecognitionService()
+    @StateObject private var openAIService = OpenAIService()
     
     @State private var isRecording = false
     @State private var showingPermissionAlert = false
@@ -38,6 +39,9 @@ struct TasksView: View {
     
     // EMERGENCY FIX: Create a force updater
     @State private var forceUpdateTasks: Bool = false
+    
+    // OpenAI Integration Toggle
+    private let enableOpenAI = true // Set to false to disable AI processing
     
     var body: some View {
         ZStack {
@@ -154,28 +158,47 @@ struct TasksView: View {
                     DispatchQueue.main.async {
                         showingRecordingIndicator = false
                         
-                        // Process the task using the duplicate-prevention method
-                        let result = taskManager.addTaskIfNotDuplicate(title: finalText, dueDate: dueDate)
-                        print("TASK: Addition result: success=\(result.success)")
-                        
-                        if result.success {
-                            // Success feedback - task was added
-                            showFeedback(message: "Task added!")
-                            provideHapticFeedback(.success)
+                        // Check if the text looks like a question or request for GPT-4
+                        if self.shouldSendToGPT4(text: finalText) {
+                            // Use the new combined GPT-4 processing function
+                            self.openAIService.processTranscribedTextComplete(
+                                finalText,
+                                showFeedback: { message, duration in
+                                    self.showFeedback(message: message, duration: duration)
+                                },
+                                provideHaptic: {
+                                    self.provideHapticFeedback(.success)
+                                },
+                                completion: { result in
+                                    // Reset processing state regardless of success/failure
+                                    self.processingTask = false
+                                    self.speechService.forceRestartVAD()
+                                }
+                            )
                         } else {
-                            // Duplicate task feedback
-                            showFeedback(message: "Similar task already exists")
-                            provideHapticFeedback(.warning)
+                            // Process as a regular task using the duplicate-prevention method
+                            let result = taskManager.addTaskIfNotDuplicate(title: finalText, dueDate: dueDate)
+                            print("TASK: Addition result: success=\(result.success)")
+                            
+                            if result.success {
+                                // Success feedback - task was added
+                                showFeedback(message: "Task added!")
+                                provideHapticFeedback(.success)
+                            } else {
+                                // Duplicate task feedback
+                                showFeedback(message: "Similar task already exists")
+                                provideHapticFeedback(.warning)
+                            }
+                            
+                            // CRITICAL FIX: Restart VAD immediately after processing to allow continuous task addition
+                            processingTask = false
+                            
+                            // Force restart VAD to ensure it works for multiple tasks
+                            speechService.forceRestartVAD()
+                            
+                            // Force UI refresh by toggling the force updater
+                            forceUpdateTasks.toggle()
                         }
-                        
-                        // CRITICAL FIX: Restart VAD immediately after processing to allow continuous task addition
-                        processingTask = false
-                        
-                        // Force restart VAD to ensure it works for multiple tasks
-                        speechService.forceRestartVAD()
-                        
-                        // Force UI refresh by toggling the force updater
-                        forceUpdateTasks.toggle()
                     }
                 } else {
                     DispatchQueue.main.async {
@@ -586,12 +609,12 @@ struct TasksView: View {
     // MARK: - Feedback methods
     
     // Shows a temporary feedback message
-    private func showFeedback(message: String) {
+    private func showFeedback(message: String, duration: TimeInterval = 3.0) {
         feedbackMessage = message
         showingFeedback = true
         
-        // Hide after 2 seconds instead of 3 for faster interface
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        // Hide after the specified duration
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
             withAnimation {
                 self.showingFeedback = false
             }
@@ -681,6 +704,99 @@ struct TasksView: View {
         let today = calendar.startOfDay(for: Date())
         let sevenDaysLater = calendar.date(byAdding: .day, value: 7, to: today)!
         return date <= sevenDaysLater && date >= today
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Determines if the transcribed text should be sent to GPT-4 instead of creating a task
+    private func shouldSendToGPT4(text: String) -> Bool {
+        // If OpenAI is disabled, never send to GPT-4
+        guard enableOpenAI else { return false }
+        
+        let lowercaseText = text.lowercased()
+        
+        // Question indicators
+        let questionWords = ["what", "how", "why", "when", "where", "who", "which", "can you", "could you", "would you", "do you", "are you", "is there", "tell me", "explain", "help me"]
+        
+        // Check if it starts with a question word or contains question patterns
+        for questionWord in questionWords {
+            if lowercaseText.hasPrefix(questionWord) || lowercaseText.contains(questionWord) {
+                return true
+            }
+        }
+        
+        // Check for question marks
+        if text.contains("?") {
+            return true
+        }
+        
+        // Check for conversational patterns
+        let conversationalPatterns = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "thank you", "thanks", "please", "sorry"]
+        
+        for pattern in conversationalPatterns {
+            if lowercaseText.contains(pattern) {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    private func getErrorMessage(from error: Error) -> String {
+        if let openAIError = error as? OpenAIError {
+            switch openAIError {
+            case .httpError(429, _):
+                return "🚫 OpenAI usage limit reached"
+            case .httpError(401, _):
+                return "🔑 Invalid OpenAI API key"
+            case .networkError(_):
+                return "🌐 Network connection issue"
+            case .invalidAPIKey:
+                return "⚙️ OpenAI API key not configured"
+            case .emptyPrompt:
+                return "📝 No text to process"
+            case .noResponse:
+                return "🤖 No response from AI"
+            default:
+                return "⚠️ AI service temporarily unavailable"
+            }
+        }
+        return "❌ Something went wrong"
+    }
+    
+    // MARK: - Combined GPT-4 Processing Helper
+    
+    /// Example usage of the combined GPT-4 processing function
+    /// This shows how to use processTranscribedTextComplete in any SwiftUI view
+    private func handleUserSpeech(_ transcribedText: String) {
+        // Simple one-line call that handles everything:
+        // 1. Sends to GPT-4
+        // 2. Displays response in UI
+        // 3. Speaks response aloud
+        openAIService.processTranscribedTextComplete(
+            transcribedText,
+            showFeedback: { message, duration in
+                // Display message in your UI
+                self.showFeedback(message: message, duration: duration)
+            },
+            provideHaptic: {
+                // Provide haptic feedback for success
+                self.provideHapticFeedback(.success)
+            },
+            completion: { result in
+                // Handle completion (success or failure)
+                switch result {
+                case .success(let response):
+                    print("✅ GPT-4 pipeline completed: \(response)")
+                case .failure(let error):
+                    print("❌ GPT-4 pipeline failed: \(error)")
+                }
+                
+                // Reset any processing states
+                self.processingTask = false
+                self.speechService.forceRestartVAD()
+            }
+        )
     }
 }
 

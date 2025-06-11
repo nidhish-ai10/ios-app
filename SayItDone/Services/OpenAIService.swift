@@ -10,11 +10,29 @@ import AVFoundation
 import Combine
 
 class OpenAIService: NSObject, ObservableObject {
-    private let apiKey = "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"
+    // SECURITY: API key should be stored securely, not hardcoded
+    // For development: Set your API key in Xcode scheme environment variables
+    // For production: Use Keychain or secure configuration
+    private let apiKey: String = {
+        // Try to get from environment variable first (recommended)
+        if let envKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"] {
+            return envKey
+        }
+        
+        // Fallback: You can temporarily set your key here for development
+        // IMPORTANT: Never commit your actual API key to version control!
+        return "YOUR_OPENAI_API_KEY_HERE" // Replace with your actual key locally
+    }()
+    
     private let baseURL = "https://api.openai.com/v1/chat/completions"
     
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var lastResponse: String = ""
+    
+    // Retry configuration
+    private let maxRetries = 3
+    private let retryDelay: TimeInterval = 1.0
     
     // MARK: - Text-to-Speech Properties
     private let speechSynthesizer = AVSpeechSynthesizer()
@@ -35,7 +53,7 @@ class OpenAIService: NSObject, ObservableObject {
     
     struct ChatCompletionRequest: Codable {
         let model: String
-        let messages: [Message]
+        let messages: [ChatMessage]
         let maxTokens: Int?
         let temperature: Double?
         
@@ -45,7 +63,7 @@ class OpenAIService: NSObject, ObservableObject {
         }
     }
     
-    struct Message: Codable {
+    struct ChatMessage: Codable {
         let role: String
         let content: String
     }
@@ -55,13 +73,13 @@ class OpenAIService: NSObject, ObservableObject {
         let object: String
         let created: Int
         let model: String
-        let choices: [Choice]
+        let choices: [ChatChoice]
         let usage: Usage?
     }
     
-    struct Choice: Codable {
+    struct ChatChoice: Codable {
         let index: Int
-        let message: Message
+        let message: ChatMessage
         let finishReason: String?
         
         enum CodingKeys: String, CodingKey {
@@ -82,20 +100,22 @@ class OpenAIService: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Main API Function
+    // MARK: - Enhanced Main API Function
     
-    /// Sends transcribed text to GPT-4 and returns the assistant's response
-    /// - Parameters:
-    ///   - userPrompt: The transcribed text from speech recognition
-    ///   - systemPrompt: Optional system prompt to guide the AI's behavior
-    ///   - completion: Completion handler with the result
-    func sendToGPT4(
-        userPrompt: String,
-        systemPrompt: String? = nil,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
+    /// Send transcribed text to GPT-3.5-turbo with retry logic and better error handling
+    func sendToGPT4(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        sendToGPT4WithRetry(prompt: prompt, retryCount: 0, completion: completion)
+    }
+    
+    private func sendToGPT4WithRetry(prompt: String, retryCount: Int, completion: @escaping (Result<String, Error>) -> Void) {
+        // Validate API key first
+        guard !apiKey.contains("YOUR_OPENAI_API_KEY_HERE") && apiKey.hasPrefix("sk-") else {
+            completion(.failure(OpenAIError.invalidAPIKey))
+            return
+        }
+        
         // Validate input
-        guard !userPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             completion(.failure(OpenAIError.emptyPrompt))
             return
         }
@@ -106,61 +126,93 @@ class OpenAIService: NSObject, ObservableObject {
             self.errorMessage = nil
         }
         
-        // Prepare messages
-        var messages: [Message] = []
-        
-        // Add system prompt if provided
-        if let systemPrompt = systemPrompt {
-            messages.append(Message(role: "system", content: systemPrompt))
-        }
-        
-        // Add user prompt
-        messages.append(Message(role: "user", content: userPrompt))
-        
-        // Create request body
+        // Create the request with optimized settings
         let requestBody = ChatCompletionRequest(
-            model: "gpt-4",
-            messages: messages,
-            maxTokens: 1000,
+            model: "gpt-3.5-turbo",
+            messages: [
+                ChatMessage(role: "system", content: "You are a helpful, concise assistant. Keep responses brief and conversational (1-2 sentences max)."),
+                ChatMessage(role: "user", content: prompt)
+            ],
+            maxTokens: 100, // Reduced for faster responses and lower cost
             temperature: 0.7
         )
         
-        // Perform the API call
-        performAPICall(with: requestBody) { [weak self] result in
+        // Send the request
+        sendChatCompletionRequest(requestBody: requestBody) { [weak self] result in
+            guard let self = self else { return }
+            
             DispatchQueue.main.async {
-                self?.isLoading = false
+                self.isLoading = false
                 
                 switch result {
                 case .success(let response):
-                    if let assistantMessage = response.choices.first?.message.content {
-                        completion(.success(assistantMessage))
+                    if let message = response.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines) {
+                        self.lastResponse = message
+                        print("✅ OpenAI Success: \(message)")
+                        completion(.success(message))
                     } else {
                         completion(.failure(OpenAIError.noResponse))
                     }
+                    
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                    completion(.failure(error))
+                    // Handle specific errors with retry logic
+                    if self.shouldRetry(error: error) && retryCount < self.maxRetries {
+                        print("🔄 Retrying OpenAI request (\(retryCount + 1)/\(self.maxRetries))")
+                        
+                        // Exponential backoff
+                        let delay = self.retryDelay * pow(2.0, Double(retryCount))
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            self.sendToGPT4WithRetry(prompt: prompt, retryCount: retryCount + 1, completion: completion)
+                        }
+                    } else {
+                        // Final failure
+                        self.errorMessage = self.getUserFriendlyError(error)
+                        print("❌ OpenAI Error: \(error.localizedDescription)")
+                        completion(.failure(error))
+                    }
                 }
             }
         }
     }
     
-    /// Async/await version of the GPT-4 function
-    func sendToGPT4Async(
-        userPrompt: String,
-        systemPrompt: String? = nil
-    ) async throws -> String {
-        return try await withCheckedThrowingContinuation { continuation in
-            sendToGPT4(userPrompt: userPrompt, systemPrompt: systemPrompt) { result in
-                continuation.resume(with: result)
-            }
+    /// Enhanced function for task-specific queries with better prompting
+    func processTaskQuery(transcribedText: String, completion: @escaping (Result<String, Error>) -> Void) {
+        let enhancedPrompt = """
+        User said: "\(transcribedText)"
+        
+        Respond helpfully and briefly (1-2 sentences). If it's:
+        - A question: Give a concise, helpful answer
+        - A greeting: Respond warmly
+        - A request: Acknowledge and offer brief guidance
+        - General chat: Be friendly and conversational
+        """
+        
+        sendToGPT4(prompt: enhancedPrompt, completion: completion)
+    }
+    
+    /// Speak the GPT-4 response using text-to-speech
+    func speakResponse(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.5
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 0.8
+        
+        speechSynthesizer.speak(utterance)
+    }
+    
+    /// Stop speaking if currently active
+    func stopSpeaking() {
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
         }
     }
     
     // MARK: - Private Methods
     
-    private func performAPICall(
-        with requestBody: ChatCompletionRequest,
+    private func sendChatCompletionRequest(
+        requestBody: ChatCompletionRequest,
         completion: @escaping (Result<ChatCompletionResponse, Error>) -> Void
     ) {
         // Create URL
@@ -179,14 +231,12 @@ class OpenAIService: NSObject, ObservableObject {
         do {
             let jsonData = try JSONEncoder().encode(requestBody)
             request.httpBody = jsonData
-            
-            print("OpenAI Request: \(String(data: jsonData, encoding: .utf8) ?? "Unable to encode")")
         } catch {
             completion(.failure(OpenAIError.encodingError(error)))
             return
         }
         
-        // Perform request
+        // Send request
         URLSession.shared.dataTask(with: request) { data, response, error in
             // Handle network error
             if let error = error {
@@ -235,6 +285,116 @@ class OpenAIService: NSObject, ObservableObject {
     private func setupSpeechSynthesizer() {
         speechSynthesizer.delegate = self
     }
+    
+    // MARK: - Enhanced Error Handling
+    
+    private func shouldRetry(error: Error) -> Bool {
+        if let openAIError = error as? OpenAIError {
+            switch openAIError {
+            case .networkError(_):
+                return true // Network issues can be temporary
+            case .httpError(let code, _):
+                // Retry on server errors (5xx) and some client errors
+                return code >= 500 || code == 429 // Rate limiting
+            default:
+                return false
+            }
+        }
+        return false
+    }
+    
+    private func getUserFriendlyError(_ error: Error) -> String {
+        if let openAIError = error as? OpenAIError {
+            switch openAIError {
+            case .httpError(429, _):
+                return "OpenAI usage limit reached. Please add credits to your account."
+            case .httpError(401, _):
+                return "Invalid OpenAI API key. Please check your key."
+            case .networkError(_):
+                return "Network connection issue. Please check your internet."
+            case .invalidAPIKey:
+                return "Please set up your OpenAI API key."
+            default:
+                return "AI service temporarily unavailable."
+            }
+        }
+        return "AI service error occurred."
+    }
+    
+    // MARK: - Combined GPT-4 Processing Function
+    
+    /// Complete GPT-4 processing pipeline: Send → Display → Speak
+    /// - Parameters:
+    ///   - transcribedText: The user's transcribed speech
+    ///   - showFeedback: Closure to display feedback messages in UI
+    ///   - provideHaptic: Closure to provide haptic feedback
+    ///   - completion: Called when the entire process completes
+    func processTranscribedTextComplete(
+        _ transcribedText: String,
+        showFeedback: @escaping (String, TimeInterval) -> Void,
+        provideHaptic: @escaping () -> Void,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        // Step 1: Show loading state
+        showFeedback("🤔 Thinking...", 0.5)
+        
+        // Step 2: Send to GPT-4
+        processTaskQuery(transcribedText: transcribedText) { [weak self] result in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let response):
+                    // Step 3: Display the response
+                    showFeedback("🤖 \(response)", 4.0)
+                    provideHaptic() // Success haptic
+                    
+                    // Step 4: Speak the response
+                    self.readGPT4ResponseAloud(response) {
+                        print("✅ Complete GPT-4 pipeline finished")
+                        completion(.success(response))
+                    }
+                    
+                case .failure(let error):
+                    // Handle error with user-friendly message
+                    let errorMessage = self.getErrorMessage(from: error)
+                    showFeedback("❌ \(errorMessage)", 3.0)
+                    
+                    // Provide error-specific guidance
+                    if errorMessage.contains("usage limit") {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                            showFeedback("💡 Add OpenAI credits to enable AI features", 3.0)
+                        }
+                    }
+                    
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+    
+    /// Get user-friendly error message from OpenAI errors
+    private func getErrorMessage(from error: Error) -> String {
+        if let openAIError = error as? OpenAIError {
+            switch openAIError {
+            case .httpError(429, _):
+                return "OpenAI usage limit reached"
+            case .httpError(401, _):
+                return "Invalid OpenAI API key"
+            case .networkError(_):
+                return "Network connection issue"
+            case .invalidAPIKey:
+                return "OpenAI API key not configured"
+            case .emptyPrompt:
+                return "No text to process"
+            case .noResponse:
+                return "No response from AI"
+            default:
+                return "AI service temporarily unavailable"
+            }
+        }
+        return "Something went wrong"
+    }
 }
 
 // MARK: - Error Types
@@ -249,6 +409,7 @@ enum OpenAIError: LocalizedError {
     case noData
     case decodingError(Error)
     case noResponse
+    case invalidAPIKey
     
     var errorDescription: String? {
         switch self {
@@ -270,6 +431,8 @@ enum OpenAIError: LocalizedError {
             return "Failed to decode response: \(error.localizedDescription)"
         case .noResponse:
             return "No response from GPT-4"
+        case .invalidAPIKey:
+            return "Please set a valid OpenAI API key in OpenAIService.swift"
         }
     }
 }
@@ -288,7 +451,7 @@ extension OpenAIService {
         Only return the improved task description, nothing else.
         """
         
-        sendToGPT4(userPrompt: taskText, systemPrompt: systemPrompt, completion: completion)
+        sendToGPT4(prompt: systemPrompt, completion: completion)
     }
     
     /// Quick function to get task suggestions based on transcribed text
@@ -303,7 +466,7 @@ extension OpenAIService {
         If no clear tasks can be identified, return "No clear tasks identified".
         """
         
-        sendToGPT4(userPrompt: transcribedText, systemPrompt: systemPrompt) { result in
+        sendToGPT4(prompt: systemPrompt) { result in
             switch result {
             case .success(let response):
                 let tasks = response.components(separatedBy: .newlines)
@@ -371,33 +534,6 @@ extension OpenAIService {
         print("TTS: Speaking text: '\(text.prefix(50))...'")
     }
     
-    /// Stops current speech synthesis
-    func stopSpeaking() {
-        if speechSynthesizer.isSpeaking {
-            speechSynthesizer.stopSpeaking(at: .immediate)
-            DispatchQueue.main.async {
-                self.isSpeaking = false
-            }
-            print("TTS: Speech stopped")
-        }
-    }
-    
-    /// Pauses current speech synthesis
-    func pauseSpeaking() {
-        if speechSynthesizer.isSpeaking && !speechSynthesizer.isPaused {
-            speechSynthesizer.pauseSpeaking(at: .immediate)
-            print("TTS: Speech paused")
-        }
-    }
-    
-    /// Resumes paused speech synthesis
-    func resumeSpeaking() {
-        if speechSynthesizer.isPaused {
-            speechSynthesizer.continueSpeaking()
-            print("TTS: Speech resumed")
-        }
-    }
-    
     /// Configures audio session for speech synthesis
     private func configureAudioSessionForSpeech() {
         do {
@@ -434,7 +570,7 @@ extension OpenAIService {
         language: String = "en-US",
         completion: @escaping (Result<String, Error>) -> Void
     ) {
-        sendToGPT4(userPrompt: userPrompt, systemPrompt: systemPrompt) { [weak self] result in
+        sendToGPT4(prompt: userPrompt) { [weak self] result in
             switch result {
             case .success(let response):
                 // Speak the GPT-4 response
@@ -491,5 +627,58 @@ extension OpenAIService: AVSpeechSynthesizerDelegate {
         }
         print("TTS: Speech cancelled")
         onSpeechComplete?()
+    }
+    
+    // MARK: - GPT-4 Response Speech Function
+    
+    /// Reads GPT-4 response text aloud with optimized settings for AI responses
+    /// - Parameters:
+    ///   - responseText: The GPT-4 response text to speak
+    ///   - completion: Optional completion handler called when speech finishes
+    func readGPT4ResponseAloud(_ responseText: String, completion: (() -> Void)? = nil) {
+        // Stop any current speech
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
+        }
+        
+        // Validate input
+        guard !responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("TTS: Cannot speak empty GPT-4 response")
+            completion?()
+            return
+        }
+        
+        // Set completion callback
+        onSpeechComplete = completion
+        
+        // Create speech utterance with GPT-4 optimized settings
+        let utterance = AVSpeechUtterance(string: responseText)
+        
+        // Optimized settings for AI responses
+        utterance.rate = 0.55 // Slightly faster for conversational feel
+        utterance.pitchMultiplier = 1.1 // Slightly higher pitch for clarity
+        utterance.volume = 0.9 // High volume for clear delivery
+        
+        // Use a natural-sounding voice
+        if let voice = AVSpeechSynthesisVoice(language: "en-US") {
+            utterance.voice = voice
+        }
+        
+        // Configure audio session for speech
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try audioSession.setActive(true)
+        } catch {
+            print("TTS: Failed to configure audio session: \(error)")
+        }
+        
+        // Update state and speak
+        DispatchQueue.main.async {
+            self.isSpeaking = true
+        }
+        
+        speechSynthesizer.speak(utterance)
+        print("TTS: Reading GPT-4 response: '\(responseText.prefix(50))...'")
     }
 } 
