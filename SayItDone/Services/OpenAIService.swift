@@ -21,7 +21,7 @@ class OpenAIService: NSObject, ObservableObject {
         
         // Fallback: You can temporarily set your key here for development
         // IMPORTANT: Never commit your actual API key to version control!
-        return "YOUR_OPENAI_API_KEY_HERE" // Replace with your actual key locally
+        return "REPLACE_WITH_ACTUAL_OPENAI_KEY" // Replace with your actual key locally
     }()
     
     private let baseURL = "https://api.openai.com/v1/chat/completions"
@@ -110,7 +110,7 @@ class OpenAIService: NSObject, ObservableObject {
     
     private func sendToGPT4WithRetry(prompt: String, retryCount: Int, completion: @escaping (Result<String, Error>) -> Void) {
         // Validate API key first
-        guard !apiKey.contains("YOUR_OPENAI_API_KEY_HERE") && apiKey.hasPrefix("sk-") else {
+        guard !apiKey.contains("REPLACE_WITH_ACTUAL_OPENAI_KEY") && apiKey.hasPrefix("sk-") else {
             completion(.failure(OpenAIError.invalidAPIKey))
             return
         }
