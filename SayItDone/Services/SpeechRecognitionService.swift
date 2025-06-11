@@ -251,7 +251,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                 DispatchQueue.main.async {
                     // Only update if the text has actually changed to avoid unnecessary UI updates
                     if self.transcribedText != transcription {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        // Use faster animation for better responsiveness
+                        withAnimation(.easeInOut(duration: 0.1)) {
                             self.transcribedText = transcription
                         }
                         
@@ -294,29 +295,30 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                         // Get the final text to process
                         let finalText = self.storedTranscribedText.isEmpty ? self.transcribedText : self.storedTranscribedText
                         
-                        // Clear the transcribed text immediately
-                        self.transcribedText = ""
-                        
                         // Check if we have text to process and it hasn't been processed already
                         if !finalText.isEmpty && finalText != self.lastProcessedText {
                             self.lastProcessedText = finalText
                             
-                            // Process the task text
+                            // Process the task text - moved outside of UI update to improve performance
                             let (title, dueDate) = self.processTaskText(finalText)
                             
-                            // Call completion handler with the extracted task
+                            // Clear the transcribed text after processing
+                            self.transcribedText = ""
+                            
+                            // Call completion handler with the extracted task - synchronous to improve task display performance
                             self.onRecognitionComplete?(title, dueDate)
                             
-                            // Reset processing state after a delay to ensure the system can stabilize
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            // Reset processing state after a shorter delay to improve responsiveness
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                                 self.isProcessingCompletion = false
                             }
                         } else {
                             // If there's no text to process, still notify completion to hide UI
+                            self.transcribedText = "" // Ensure text is cleared
                             self.onRecognitionComplete?("", nil)
                             
-                            // Reset processing state after a delay
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            // Reset processing state after a shorter delay
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                 self.isProcessingCompletion = false
                             }
                         }
@@ -327,7 +329,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         
         // Configure audio recording with monitoring for silence - use smaller buffer size for better responsiveness
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 512, format: recordingFormat) { [weak self] buffer, _ in
+        inputNode.installTap(onBus: 0, bufferSize: 256, format: recordingFormat) { [weak self] buffer, _ in
+            // Use smaller buffer size (256 instead of 512) for improved responsiveness
             guard let self = self else { return }
             
             // Add incoming audio to the recognition request

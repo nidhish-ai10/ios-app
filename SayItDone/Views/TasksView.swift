@@ -34,6 +34,9 @@ struct TasksView: View {
     // Color for our app
     let pastelBlueDarker = Color(red: 150/255, green: 190/255, blue: 255/255)
     
+    // Add this property at the top of the struct, near other state variables
+    @State private var processingTask = false
+    
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
@@ -135,77 +138,70 @@ struct TasksView: View {
             }
             
             // Set up the speech service with improved feedback
-            speechService.onRecognitionComplete = { taskTitle, dueDate in
-                // Hide recording indicator
-                withAnimation(.easeOut(duration: 0.3)) {
+            speechService.onRecognitionComplete = { [weak self] text, dueDate in
+                guard let self = self else { return }
+                
+                // Update UI immediately to indicate processing
+                withAnimation(.easeOut(duration: 0.2)) {
                     self.showingRecordingIndicator = false
                 }
                 
                 // Only process non-empty tasks
-                if !taskTitle.isEmpty {
-                    // Add the task with animation
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        let newTask = taskManager.addTask(title: taskTitle, dueDate: dueDate)
+                if !text.isEmpty {
+                    // Set processing flag to prevent UI updates during task creation
+                    self.processingTask = true
+                    
+                    // Add the task with minimal delay
+                    DispatchQueue.main.async {
+                        // Add the new task
+                        let newTaskId = self.taskManager.addTask(title: text, dueDate: dueDate)
                         
-                        // Store the new task ID for highlighting
-                        self.newTaskID = newTask
+                        // Store the ID for animations
+                        self.newTaskID = newTaskId
                         
-                        // Show highlighting animation for the new task
-                        self.showingNewTaskAnimation = true
-                        
-                        // Show feedback with date if available
-                        if let date = dueDate {
-                            let calendar = Calendar.current
-                            let weekday = calendar.component(.weekday, from: date)
-                            let weekdaySymbol = calendar.weekdaySymbols[weekday-1]
-                            
-                            // Check if time was specified (not midnight)
-                            let hasTime = !calendar.isDate(date, equalTo: calendar.startOfDay(for: date), toGranularity: .hour)
-                            
-                            let formatter = DateFormatter()
-                            formatter.dateFormat = "MMMM d, yyyy"
-                            let dateString = formatter.string(from: date)
-                            
-                            // Get actual date for display
-                            let actualDateFormatter = DateFormatter()
-                            actualDateFormatter.dateFormat = "MMMM d"
-                            let actualDateString = actualDateFormatter.string(from: date)
-                            
-                            // Create a task object temporarily to use its heading property
-                            let tempTask = Task(title: taskTitle, dueDate: dueDate)
-                            let taskHeading = tempTask.heading
-                            
-                            // Always use actual date for clarity
-                            let scheduledDateMessage = actualDateString
-                            
-                            // Add time to feedback if specified
-                            if hasTime {
-                                let timeFormatter = DateFormatter()
-                                timeFormatter.dateFormat = "h:mm a"
-                                let timeString = timeFormatter.string(from: date)
-                                self.showFeedback(message: "\"\(taskHeading)\" scheduled for \(scheduledDateMessage) at \(timeString)")
-                            } else {
-                                self.showFeedback(message: "\"\(taskHeading)\" scheduled for \(scheduledDateMessage)")
-                            }
-                        } else {
-                            // Show confirmation for tasks without dates
-                            // Create a task object temporarily to use its heading property
-                            let tempTask = Task(title: taskTitle, dueDate: nil)
-                            let taskHeading = tempTask.heading
-                            self.showFeedback(message: "\"\(taskHeading)\" added")
+                        // Animate the new task appearance
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            self.showingNewTaskAnimation = true
                         }
                         
-                        // Reset highlighting after a delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        // Show appropriate feedback based on task scheduling
+                        if let dueDate = dueDate {
+                            if Calendar.current.isDateInToday(dueDate) {
+                                self.showFeedback(message: "Task scheduled for today")
+                            } else if Calendar.current.isDateInTomorrow(dueDate) {
+                                self.showFeedback(message: "Task scheduled for tomorrow")
+                            } else if self.isDateInCurrentWeek(dueDate) {
+                                let formatter = DateFormatter()
+                                formatter.dateFormat = "EEEE"
+                                let dayName = formatter.string(from: dueDate)
+                                self.showFeedback(message: "Task scheduled for \(dayName)")
+                            } else {
+                                let formatter = DateFormatter()
+                                formatter.dateStyle = .medium
+                                let dateString = formatter.string(from: dueDate)
+                                self.showFeedback(message: "Task scheduled for \(dateString)")
+                            }
+                        } else {
+                            self.showFeedback(message: "Task added")
+                        }
+                        
+                        // Reset animation after delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             withAnimation {
                                 self.showingNewTaskAnimation = false
                                 self.newTaskID = nil
+                                self.processingTask = false
                             }
                         }
+                        
+                        // Provide haptic feedback on task creation
+                        self.provideHapticFeedback(.success)
                     }
-                    
-                    // Provide haptic feedback on task creation
-                    self.provideHapticFeedback(.success)
+                } else {
+                    // No task to add, just hide the recording indicator
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        self.showingRecordingIndicator = false
+                    }
                 }
             }
             
@@ -235,13 +231,13 @@ struct TasksView: View {
             }
         }
         .onChange(of: speechService.transcribedText) { newValue in
-            // Handle transcription text changes more efficiently
-            let oldValue = speechService.transcribedText
+            // Skip UI updates if we're processing a task
+            guard !processingTask else { return }
             
-            // Always show recording indicator when there's text
-            if !newValue.isEmpty {
-                // Show recording indicator when we have text
-                withAnimation(.easeIn(duration: 0.2)) {
+            // Only show recording indicator when there's text and not already shown
+            if !newValue.isEmpty && !showingRecordingIndicator {
+                // Fast animation for better performance
+                withAnimation(.easeIn(duration: 0.1)) {
                     showingRecordingIndicator = true
                 }
             }
@@ -389,13 +385,18 @@ struct TasksView: View {
             if micGranted {
                 checkSpeechRecognitionPermission { speechGranted in
                     if speechGranted {
-                        // Reset service state first
+                        // Reset service state first (moved outside of async to start reset immediately)
                         self.speechService.resetRecording()
-                        // Reset transcription to ensure a clean slate
                         self.speechService.resetTranscription()
                         
+                        // Reset UI state
+                        DispatchQueue.main.async {
+                            self.showingRecordingIndicator = false
+                            self.processingTask = false
+                        }
+                        
                         // Start VAD service after a short delay to ensure cleanup
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             // Start VAD service
                             self.speechService.isVADEnabled = true
                             self.speechService.startVoiceActivityDetection()
@@ -692,7 +693,7 @@ struct TasksView: View {
     }
     
     // Helper to check if date is within current week
-    private func isDateWithinWeek(_ date: Date) -> Bool {
+    private func isDateInCurrentWeek(_ date: Date) -> Bool {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let sevenDaysLater = calendar.date(byAdding: .day, value: 7, to: today)!

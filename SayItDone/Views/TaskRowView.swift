@@ -10,192 +10,240 @@ import LocalAuthentication
 
 struct TaskRowView: View {
     let task: Task
-    let onDelete: () -> Void
+    var onDelete: (Task) -> Void
     
-    // State for UI interactions
-    @State private var isPressed = false
-    @State private var appearAnimation = false
-    @State private var showingDeleteConfirmation = false
-    @State private var showingAuthenticationError = false
+    @State private var offset: CGFloat = 0
+    @State private var isSwiped = false
+    @State private var deleteConfirmation = false
+    @State private var authenticationError = false
+    @State private var authenticationErrorMessage = ""
     
-    // User preferences
-    @AppStorage("isHapticsEnabled") private var isHapticsEnabled = true
-    @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled = true
-    @AppStorage("userFirstName") private var userFirstName: String = ""
+    // Add task ID for better SwiftUI view identification
+    private let viewID = UUID()
     
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Task completion circle with improved interaction
-            Button(action: {
-                // Provide haptic feedback when enabled
-                if isHapticsEnabled {
-                    let generator = UIImpactFeedbackGenerator(style: .light)
-                    generator.impactOccurred()
-                }
-                
-                // Mark task as complete - process directly without confirmation
-                completeTask()
-            }) {
-                Circle()
-                    .strokeBorder(isPressed ? Color.green : Color.gray, lineWidth: 1.5)
-                    .frame(width: 22, height: 22)
-                    .background(
-                        Circle()
-                            .fill(isPressed ? Color.green.opacity(0.3) : Color.clear)
-                            .frame(width: 22, height: 22)
-                    )
-                    .overlay(
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .opacity(isPressed ? 1 : 0)
-                    )
-            }
-            .buttonStyle(PlainButtonStyle())
-            
-            // Task details with improved layout
-            VStack(alignment: .leading, spacing: 6) {
-                // Task heading instead of full title
-                Text(task.heading)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .lineLimit(2)
-                
-                // Only show due date info if there is a due date
-                if task.dueDate != nil {
-                    HStack(spacing: 6) {
-                        // Calendar icon
-                        Image(systemName: task.isOverdue ? "exclamationmark.circle" : "calendar")
-                            .font(.system(size: 14))
-                            .foregroundColor(task.isOverdue ? .red : .gray)
-                        
-                        // Due date with improved formatting - more compact and elegant
-                        Text(task.dueDateDisplay)
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(task.isOverdue ? .red : .primary)
-                        
-                        // Check if time was specified (not midnight)
-                        let calendar = Calendar.current
-                        if let dueDate = task.dueDate, !calendar.isDate(dueDate, equalTo: calendar.startOfDay(for: dueDate), toGranularity: .hour) {
-                            // Clock icon is no longer needed as time is integrated into the dueDateDisplay
-                        }
-                        
+        ZStack {
+            // Background for delete action - lighter memory footprint using RoundedRectangle
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.red)
+                .overlay(
+                    HStack {
                         Spacer()
-                        
-                        // Time remaining indicator - moved to the right for better balance
-                        if !task.timeRemaining.isEmpty {
-                            Text(task.timeRemaining)
-                                .font(.system(size: 12, weight: task.isOverdue ? .medium : .regular))
-                                .foregroundColor(task.isOverdue ? .red : .gray)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(Color.gray.opacity(0.1))
-                                )
+                        Image(systemName: "trash.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding(.trailing, 25)
+                    }
+                )
+            
+            // Task content
+            HStack(spacing: 15) {
+                // Task completion circle
+                Circle()
+                    .stroke(Color.gray.opacity(0.5), lineWidth: 1.5)
+                    .frame(width: 25, height: 25)
+                    .overlay(
+                        Circle()
+                            .fill(Color.white.opacity(0.7))
+                            .frame(width: 23, height: 23)
+                    )
+                
+                // Task details with optimized layout
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(task.heading)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+                    
+                    if let dueDate = task.dueDate {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            
+                            Text(task.formattedDueDate())
+                                .font(.caption)
+                                .foregroundColor(task.isOverdue() ? .red : .gray)
                         }
                     }
-                    .padding(.top, 4)
-                    .padding(.bottom, 2)
                 }
-            }
-            
-            Spacer()
-            
-            // Delete button with improved interaction and red trash icon
-            Button(action: {
-                // Delete action - direct deletion with authentication if enabled
-                if isHapticsEnabled {
-                    let generator = UIImpactFeedbackGenerator(style: .medium)
-                    generator.impactOccurred()
-                }
+                .padding(.vertical, 10)
                 
-                if isFaceIDEnabled {
-                    authenticateUser()
-                } else {
-                    // If authentication is not enabled, delete directly
-                    completeTask()
+                Spacer()
+            }
+            .padding(.horizontal, 15)
+            .background(Color(UIColor.systemBackground))
+            .cornerRadius(10)
+            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+            .offset(x: offset)
+            .gesture(
+                DragGesture()
+                    .onChanged { gesture in
+                        // Only allow right-to-left swipe (negative offset)
+                        if gesture.translation.width < 0 {
+                            offset = gesture.translation.width
+                        }
+                    }
+                    .onEnded { gesture in
+                        withAnimation(.spring()) {
+                            if gesture.translation.width < -100 {
+                                // Swiped far enough to trigger delete
+                                isSwiped = true
+                                offset = -60
+                            } else {
+                                // Reset position
+                                isSwiped = false
+                                offset = 0
+                            }
+                        }
+                    }
+            )
+            .onTapGesture {
+                // Reset swipe if tapped
+                if isSwiped {
+                    withAnimation(.spring()) {
+                        isSwiped = false
+                        offset = 0
+                    }
                 }
-            }) {
-                Image(systemName: "trash.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.red.opacity(0.8))
             }
-            .buttonStyle(PlainButtonStyle())
-            .padding(.top, 2)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(UIColor.systemBackground))
-                .shadow(color: Color.black.opacity(0.07), radius: 3, x: 0, y: 1)
+        .frame(height: 70)
+        .padding(.horizontal)
+        .alert(isPresented: $deleteConfirmation) {
+            Alert(
+                title: Text("Complete Task"),
+                message: Text("Are you sure you want to mark \"\(task.heading)\" as complete and remove it?"),
+                primaryButton: .destructive(Text("Complete")) {
+                    authenticateAndDelete()
+                },
+                secondaryButton: .cancel {
+                    // Reset swipe on cancel
+                    withAnimation(.spring()) {
+                        isSwiped = false
+                        offset = 0
+                    }
+                }
+            )
+        }
+        .alert(isPresented: $authenticationError) {
+            Alert(
+                title: Text("Authentication Failed"),
+                message: Text(authenticationErrorMessage),
+                dismissButton: .default(Text("OK")) {
+                    // Reset swipe on dismiss
+                    withAnimation(.spring()) {
+                        isSwiped = false
+                        offset = 0
+                    }
+                }
+            )
+        }
+        .overlay(
+            // Delete button overlay with improved tap target
+            Group {
+                if isSwiped {
+                    Button(action: {
+                        deleteConfirmation = true
+                    }) {
+                        Image(systemName: "trash.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: 70)
+                            .background(Color.red)
+                            .cornerRadius(10)
+                    }
+                    .position(x: UIScreen.main.bounds.width - 30, y: 35)
+                    .transition(.opacity)
+                }
+            }
         )
-        .padding(.vertical, 4)
-        .opacity(appearAnimation ? 1 : 0.7)
-        .scaleEffect(appearAnimation ? 1 : 0.97)
-        .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                appearAnimation = true
-            }
-        }
-        .alert("Authentication Failed", isPresented: $showingAuthenticationError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Only \(userFirstName.isEmpty ? "the account owner" : userFirstName) can delete tasks. Please try again.")
-        }
+        // Use a unique identifier for this view instance
+        .id(viewID)
     }
     
-    // Method to handle task completion and deletion
-    private func completeTask() {
-        // Add a small delay for visual feedback before deletion
-        withAnimation {
-            isPressed = true
-        }
-        
-        // Delay deletion to show the animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            onDelete()
-        }
-    }
-    
-    // Method to authenticate user with Face ID or Touch ID
-    private func authenticateUser() {
+    private func authenticateAndDelete() {
         let context = LAContext()
         var error: NSError?
         
         // Check if biometric authentication is available
-        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
-            // Authenticate with biometrics
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
             let reason = "Authenticate to delete task"
             
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, error in
-                DispatchQueue.main.async {
-                    if success {
-                        // Authentication successful, delete the task
-                        completeTask()
-                    } else {
-                        // Authentication failed, show error
-                        showingAuthenticationError = true
-                    }
-                }
-            }
-        } else {
-            // Fallback for when biometric authentication is not available
-            // Use device passcode as fallback
-            let reason = "Authenticate to delete task"
-            
+            // Attempt authentication
             context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
                 DispatchQueue.main.async {
                     if success {
                         // Authentication successful, delete the task
-                        completeTask()
+                        onDelete(task)
                     } else {
-                        // Authentication failed, show error
-                        showingAuthenticationError = true
+                        // Authentication failed
+                        withAnimation(.spring()) {
+                            isSwiped = false
+                            offset = 0
+                        }
+                        
+                        // Get username from UserDefaults for personalized message
+                        let userName = UserDefaults.standard.string(for: .userNameKey) ?? "user"
+                        
+                        // Set error message
+                        if let error = error as? LAError {
+                            switch error.code {
+                            case .userCancel:
+                                authenticationErrorMessage = "Authentication cancelled."
+                            case .userFallback:
+                                authenticationErrorMessage = "Passcode authentication cancelled."
+                            case .biometryNotAvailable:
+                                authenticationErrorMessage = "Face ID/Touch ID is not available on this device."
+                            case .biometryNotEnrolled:
+                                authenticationErrorMessage = "Face ID/Touch ID is not set up on this device."
+                            default:
+                                authenticationErrorMessage = "Only \(userName) can delete tasks."
+                            }
+                        } else {
+                            authenticationErrorMessage = "Only \(userName) can delete tasks."
+                        }
+                        
+                        authenticationError = true
                     }
                 }
             }
+        } else {
+            // Biometric authentication not available
+            withAnimation(.spring()) {
+                isSwiped = false
+                offset = 0
+            }
+            
+            // Get username from UserDefaults for personalized message
+            let userName = UserDefaults.standard.string(for: .userNameKey) ?? "user"
+            
+            // Set error message based on the specific error
+            if let error = error as? LAError {
+                switch error.code {
+                case .biometryNotAvailable:
+                    authenticationErrorMessage = "Face ID/Touch ID is not available on this device."
+                case .biometryNotEnrolled:
+                    authenticationErrorMessage = "Face ID/Touch ID is not set up on this device."
+                default:
+                    authenticationErrorMessage = "Only \(userName) can delete tasks."
+                }
+            } else {
+                authenticationErrorMessage = "Only \(userName) can delete tasks."
+            }
+            
+            authenticationError = true
         }
     }
+}
+
+// MARK: - Extensions
+extension UserDefaults {
+    func string(for key: UserDefaultsKeys) -> String? {
+        return string(forKey: key.rawValue)
+    }
+}
+
+enum UserDefaultsKeys: String {
+    case userNameKey = "userName"
 } 

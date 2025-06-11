@@ -7,104 +7,215 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 class TaskManager: ObservableObject {
     @Published var tasks: [Task] = []
-    @Published var lastDeletedTask: Task? // Track last deleted task for potential undo
+    private var deletedTasks: [Task] = []
+    private var sortMethod: SortMethod = .creationTime
+    private var pendingOperationTask: Task?
+    private var pendingOperationType: OperationType?
+    
     @Published var isVerificationRequired = false
-    @Published var pendingBatchOperation: (() -> Void)? = nil
     
-    // Add a new task
-    func addTask(title: String, dueDate: Date? = nil) -> UUID? {
-        // Skip empty tasks
-        if title.isEmpty {
-            return nil
-        }
-        
-        // Prevent duplicate tasks (check if a task with the same title was added in the last 3 seconds)
-        let recentTime = Date().timeIntervalSince1970 - 3
-        let hasDuplicate = tasks.contains { task in
-            task.title.lowercased() == title.lowercased() && 
-            task.createdAt.timeIntervalSince1970 > recentTime
-        }
-        
-        if !hasDuplicate {
-            let newTask = Task(title: title, dueDate: dueDate)
-            tasks.append(newTask)
-            return newTask.id
-        }
-        
-        return nil
+    // Add a performant ID generation mechanism
+    private var lastTaskID: UUID = UUID()
+    
+    enum SortMethod {
+        case creationTime
+        case dueDate
     }
     
-    // Remove a task at a specific index
-    func removeTask(at index: Int) {
-        guard index >= 0 && index < tasks.count else { return }
-        lastDeletedTask = tasks[index]
-        tasks.remove(at: index)
+    enum OperationType {
+        case clearAll
+        case removeOverdue
     }
     
-    // Remove a task by ID
-    func removeTask(with id: UUID) {
-        if let index = tasks.firstIndex(where: { $0.id == id }) {
-            lastDeletedTask = tasks[index]
-        }
-        tasks.removeAll { $0.id == id }
-    }
-    
-    // Clear all completed tasks with verification
-    func clearCompletedTasks(completion: @escaping (Bool) -> Void) {
-        // Store the operation for execution after verification
-        pendingBatchOperation = { [weak self] in
+    // Optimized task addition with direct return of UUID
+    func addTask(title: String, dueDate: Date?) -> UUID {
+        // Generate a new ID more efficiently
+        lastTaskID = UUID()
+        
+        // Create the task with the pre-generated ID
+        let newTask = Task(id: lastTaskID, title: title, dueDate: dueDate)
+        
+        // Use direct modification instead of array operations
+        DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.tasks.removeAll()
-            completion(true)
+            
+            // Add new task and trigger single UI update
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                self.tasks.append(newTask)
+                self.sortTasks()
+            }
         }
         
-        // Trigger verification
+        // Return the ID immediately for animations
+        return lastTaskID
+    }
+    
+    // Optimized task removal method
+    func removeTask(_ task: Task) {
+        // Store task for undo functionality
+        deletedTasks.append(task)
+        
+        // Find index using faster method
+        if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                // Remove with animation
+                withAnimation(.easeOut(duration: 0.2)) {
+                    self.tasks.remove(at: index)
+                }
+            }
+        }
+    }
+    
+    // Optimized undo implementation
+    func undoLastDeletion() -> Bool {
+        guard let lastDeleted = deletedTasks.popLast() else {
+            return false
+        }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Add back with animation
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                self.tasks.append(lastDeleted)
+                self.sortTasks()
+            }
+        }
+        
+        return true
+    }
+    
+    // Optimized sort implementation
+    private func sortTasks() {
+        switch sortMethod {
+        case .creationTime:
+            // Sort is expensive, only do when needed and on background thread
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else { return }
+                
+                let sortedTasks = self.tasks.sorted { $0.id.uuidString > $1.id.uuidString }
+                
+                DispatchQueue.main.async {
+                    // Only update if order actually changed to prevent unnecessary UI updates
+                    if self.tasks != sortedTasks {
+                        self.tasks = sortedTasks
+                    }
+                }
+            }
+        case .dueDate:
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                guard let self = self else { return }
+                
+                let sortedTasks = self.tasks.sorted { first, second in
+                    // Tasks with no due date go to the bottom
+                    if first.dueDate == nil && second.dueDate == nil {
+                        return first.id.uuidString > second.id.uuidString // Fall back to creation time
+                    } else if first.dueDate == nil {
+                        return false
+                    } else if second.dueDate == nil {
+                        return true
+                    } else {
+                        return first.dueDate! < second.dueDate!
+                    }
+                }
+                
+                DispatchQueue.main.async {
+                    // Only update if order actually changed
+                    if self.tasks != sortedTasks {
+                        self.tasks = sortedTasks
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Additional operations (with verification prompt)
+    
+    func requestClearAllTasks() {
+        pendingOperationType = .clearAll
+        pendingOperationTask = nil
         isVerificationRequired = true
     }
     
-    // Execute the pending operation after verification
+    func requestRemoveOverdueTasks() {
+        pendingOperationType = .removeOverdue
+        pendingOperationTask = nil
+        isVerificationRequired = true
+    }
+    
     func executePendingOperation() {
-        if let operation = pendingBatchOperation {
-            operation()
-            pendingBatchOperation = nil
+        defer {
+            // Reset verification state
+            pendingOperationType = nil
+            pendingOperationTask = nil
+            isVerificationRequired = false
         }
-        isVerificationRequired = false
+        
+        // Execute the pending operation
+        if let operationType = pendingOperationType {
+            switch operationType {
+            case .clearAll:
+                clearAllTasks()
+            case .removeOverdue:
+                removeOverdueTasks()
+            }
+        }
     }
     
-    // Cancel the pending operation
     func cancelPendingOperation() {
-        pendingBatchOperation = nil
+        pendingOperationType = nil
+        pendingOperationTask = nil
         isVerificationRequired = false
     }
     
-    // Undo last deletion if possible
-    func undoLastDeletion() -> Bool {
-        if let lastTask = lastDeletedTask {
-            tasks.append(lastTask)
-            lastDeletedTask = nil
-            return true
+    // Clear all tasks
+    private func clearAllTasks() {
+        // Store for potential undo
+        deletedTasks = tasks
+        
+        // Clear tasks with animation
+        withAnimation(.easeOut(duration: 0.3)) {
+            tasks.removeAll()
         }
-        return false
     }
     
-    // Sort tasks by creation date (newest first)
-    func sortByCreationDate() {
-        tasks.sort { $0.createdAt > $1.createdAt }
-    }
-    
-    // Sort tasks by due date (soonest first)
-    func sortByDueDate() {
-        tasks.sort { 
-            if let date1 = $0.dueDate, let date2 = $1.dueDate {
-                return date1 < date2
-            } else if $0.dueDate != nil {
-                return true
-            } else {
+    // Remove overdue tasks
+    private func removeOverdueTasks() {
+        let now = Date()
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: now)
+        
+        // Get overdue tasks
+        let overdueTasks = tasks.filter { task in
+            if let dueDate = task.dueDate {
+                return calendar.startOfDay(for: dueDate) < today
+            }
+            return false
+        }
+        
+        // Store for undo
+        deletedTasks.append(contentsOf: overdueTasks)
+        
+        // Remove overdue tasks
+        withAnimation {
+            tasks.removeAll { task in
+                if let dueDate = task.dueDate {
+                    return calendar.startOfDay(for: dueDate) < today
+                }
                 return false
             }
         }
+    }
+    
+    // Change sort method
+    func setSortMethod(_ method: SortMethod) {
+        sortMethod = method
+        sortTasks()
     }
 } 
