@@ -6,14 +6,44 @@
 //
 
 import SwiftUI
+import FirebaseCore
+
+
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+  func application(_ application: UIApplication,
+                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    FirebaseApp.configure()
+
+    return true
+  }
+}
 
 @main
+struct YourApp: App {
+  // register app delegate for Firebase setup
+  @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+
+
+  var body: some Scene {
+    WindowGroup {
+      NavigationView {
+        ContentView()
+      }
+    }
+  }
+}
+
+
 struct SayItDoneApp: App {
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
     @AppStorage("isDarkMode") private var isDarkMode = false
     @StateObject private var authService = AuthenticationService()
     
     init() {
+        // Configure Firebase
+        FirebaseApp.configure()
+        
         // Apply dark mode setting on app launch using the modern API
         setAppearance()
     }
@@ -42,7 +72,7 @@ struct SayItDoneApp: App {
                         // Update appearance when dark mode setting changes
                         setAppearance()
                     }
-                    .onChange(of: authService.isAuthenticated) { newValue in
+                    .onChange(of: authService.isAuthenticated) { oldValue, newValue in
                         // Update login state when authentication changes
                         isLoggedIn = newValue
                     }
