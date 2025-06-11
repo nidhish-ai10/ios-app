@@ -278,11 +278,44 @@ class TaskManager: ObservableObject {
         }
     }
     
-    // Allow all tasks to be added - no duplicate checking
+    // Smart duplicate detection - prevents identical tasks but allows different ones
+    private func hasDuplicateTask(title: String, dueDate: Date?) -> Bool {
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        return tasks.contains { existingTask in
+            let existingNormalizedTitle = existingTask.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            
+            // Check if titles are identical
+            let titlesMatch = existingNormalizedTitle == normalizedTitle
+            
+            // Check if due dates are the same (considering nil dates)
+            let datesMatch: Bool
+            if let dueDate = dueDate, let existingDueDate = existingTask.dueDate {
+                // Both have dates - compare them (within 1 minute tolerance)
+                datesMatch = abs(dueDate.timeIntervalSince(existingDueDate)) < 60
+            } else if dueDate == nil && existingTask.dueDate == nil {
+                // Both have no due date
+                datesMatch = true
+            } else {
+                // One has date, other doesn't - not a match
+                datesMatch = false
+            }
+            
+            return titlesMatch && datesMatch
+        }
+    }
+
+    // Allow all tasks to be added - with smart duplicate checking
     func addTaskIfNotDuplicate(title: String, dueDate: Date?) -> (success: Bool, taskID: UUID?) {
         print("TaskManager: Adding task '\(title)'")
         
-        // Always add the task - no duplicate checking
+        // Check for exact duplicates only
+        if hasDuplicateTask(title: title, dueDate: dueDate) {
+            print("TaskManager: Duplicate task detected, not adding")
+            return (false, nil)
+        }
+        
+        // Add the task - it's not a duplicate
         // Generate a new ID more efficiently
         lastTaskID = UUID()
         
@@ -313,7 +346,7 @@ class TaskManager: ObservableObject {
             self.sortTasksBackground()
         }
         
-        // Always return success
+        // Return success
         return (true, lastTaskID)
     }
 } 

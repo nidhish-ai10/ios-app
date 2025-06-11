@@ -818,9 +818,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // Helper method to find the next occurrence of a specific weekday with optional offset
     private func nextWeekdayWithOffset(_ weekday: Int, offset: Int) -> Date {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let todayWeekday = calendar.component(.weekday, from: today)
+        let today = Calendar.current.startOfDay(for: Date())
+        let todayWeekday = Calendar.current.component(.weekday, from: today)
         
         var daysToAdd = weekday - todayWeekday
         
@@ -833,7 +832,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         // Add additional offset (for "next" we add 7 more days)
         daysToAdd += offset
         
-        return calendar.date(byAdding: .day, value: daysToAdd, to: today)!
+        return Calendar.current.date(byAdding: .day, value: daysToAdd, to: today)!
     }
     
     // Keep the original nextWeekday method for backward compatibility

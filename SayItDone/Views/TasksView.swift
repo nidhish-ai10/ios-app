@@ -8,6 +8,7 @@
 import SwiftUI
 import Speech
 import AVFAudio
+import Combine
 
 struct TasksView: View {
     @StateObject private var taskManager = TaskManager()
@@ -173,11 +174,8 @@ struct TasksView: View {
                         // Force restart VAD to ensure it works for multiple tasks
                         speechService.forceRestartVAD()
                         
-                        // Refresh UI to show the new task immediately
-                        DispatchQueue.main.async {
-                            // Force UI refresh
-                            self.objectWillChange.send()
-                        }
+                        // Force UI refresh by toggling the force updater
+                        forceUpdateTasks.toggle()
                     }
                 } else {
                     DispatchQueue.main.async {
@@ -203,7 +201,7 @@ struct TasksView: View {
             // Set up notification observers
             setupNotificationObservers()
         }
-        .onChange(of: speechService.isListening) { newValue in
+        .onChange(of: speechService.isListening) { oldValue, newValue in
             listenPulse = newValue
             
             // Always show recording indicator when listening
@@ -217,7 +215,7 @@ struct TasksView: View {
                 // It will be hidden by onRecognitionComplete
             }
         }
-        .onChange(of: speechService.transcribedText) { newValue in
+        .onChange(of: speechService.transcribedText) { oldValue, newValue in
             // Skip UI updates if we're processing a task
             guard !processingTask else { return }
             
@@ -229,7 +227,7 @@ struct TasksView: View {
                 }
             }
         }
-        .onChange(of: isVADEnabled) { newValue in
+        .onChange(of: isVADEnabled) { oldValue, newValue in
             // Handle changes to VAD toggle
             if newValue {
                 startVAD()
@@ -317,7 +315,7 @@ struct TasksView: View {
                 }
             )
         }
-        .onChange(of: taskManager.isVerificationRequired) { newValue in
+        .onChange(of: taskManager.isVerificationRequired) { oldValue, newValue in
             if newValue {
                 showingVerificationDialog = true
             }
