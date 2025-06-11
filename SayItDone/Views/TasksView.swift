@@ -20,8 +20,6 @@ struct TasksView: View {
     @State private var listenPulse = false
     @State private var feedbackMessage = ""
     @State private var showingFeedback = false
-    @State private var showingNewTaskAnimation = false
-    @State private var newTaskID: UUID?
     @State private var showingUndoButton = false
     @State private var showingVerificationDialog = false
     
@@ -63,10 +61,9 @@ struct TasksView: View {
                                     showUndoOption()
                                 }
                                 .id(task.id)
-                                .background(newTaskID == task.id ? Color.yellow.opacity(0.3) : Color.clear)
+                                .background(Color.clear)
                                 .cornerRadius(8)
-                                .scaleEffect(newTaskID == task.id && showingNewTaskAnimation ? 1.05 : 1.0)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingNewTaskAnimation)
+                                .scaleEffect(1.0)
                             }
                         }
                         .id(forceUpdateTasks) // Force view to rebuild when this changes
@@ -161,10 +158,6 @@ struct TasksView: View {
                         if result.success, let newTaskID = result.taskID {
                             print("CRITICAL DEBUG: Added task with ID: \(newTaskID), total count: \(taskManager.tasks.count)")
                             
-                            // Set highlighting for new task
-                            self.newTaskID = newTaskID
-                            showingNewTaskAnimation = true
-                            
                             // Show success feedback
                             feedbackMessage = "Task added! Say another task to continue."
                             showingFeedback = true
@@ -173,18 +166,9 @@ struct TasksView: View {
                             let generator = UINotificationFeedbackGenerator()
                             generator.notificationOccurred(.success)
                             
-                            // Reset animation and feedback after delay
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                withAnimation {
-                                    showingNewTaskAnimation = false
-                                    self.newTaskID = nil
-                                }
-                            }
-                            
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                                withAnimation {
-                                    showingFeedback = false
-                                }
+                            // Reset processing flag if it was set
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                processingTask = false
                             }
                         } else {
                             print("CRITICAL DEBUG: Duplicate task detected, not adding")
@@ -196,11 +180,6 @@ struct TasksView: View {
                                     showingFeedback = false
                                 }
                             }
-                        }
-                        
-                        // Reset processing flag if it was set
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            processingTask = false
                         }
                     }
                 } else {

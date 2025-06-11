@@ -497,9 +497,6 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         var dueDate: Date?
         var timeSpecified = false
         
-        // Advanced date extraction using Natural Language Processing
-        // Look for patterns like "tomorrow", "next Tuesday", etc.
-        
         // Common date patterns to search for - Fixed to use proper dictionary type
         let datePatterns: [String: Date?] = [
             // Relative dates - with explicit date references
@@ -517,13 +514,23 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         // First check for common patterns
         let lowercasedText = text.lowercased()
         
+        // ENHANCED: Check for "in X minutes" patterns first
+        if let minutesFromNow = extractMinutesFromText(lowercasedText) {
+            // Calculate exact time from now
+            dueDate = Calendar.current.date(byAdding: .minute, value: minutesFromNow, to: Date())
+            
+            // Remove the time reference from the task title
+            taskTitle = removeTimeReferencesFromText(text, lowercasedText)
+            timeSpecified = true
+        }
+        
         // Time extraction - Look for time patterns
         var extractedHour: Int?
         var extractedMinute: Int?
         var isPM = false
         
-        // First check for time patterns in the entire text
-        if extractTimeFromText(lowercasedText, &extractedHour, &extractedMinute, &isPM) {
+        // First check for time patterns in the entire text (only if no minutes-from-now found)
+        if dueDate == nil && extractTimeFromText(lowercasedText, &extractedHour, &extractedMinute, &isPM) {
             timeSpecified = true
         }
         
@@ -805,56 +812,16 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             }
         }
         
-        // Pattern 3: Time with "at" or "by" - "at 3 PM", "by 10:30 AM", etc.
-        let prepositionTimePatterns = [
-            #"at\s+(\d{1,2})\s*(am|pm)"#,
-            #"by\s+(\d{1,2})\s*(am|pm)"#,
-            #"at\s+(\d{1,2}):(\d{2})\s*(am|pm)"#,
-            #"by\s+(\d{1,2}):(\d{2})\s*(am|pm)"#
-        ]
-        
-        for pattern in prepositionTimePatterns {
-            if let timeRange = text.range(of: pattern, options: .regularExpression) {
-                let timeText = String(text[timeRange])
-                
-                if timeText.contains(":") {
-                    // Handle "at 3:30 PM" format
-                    let components = timeText.components(separatedBy: CharacterSet(charactersIn: ": "))
-                    let filteredComponents = components.filter { !$0.isEmpty && !$0.lowercased().hasPrefix("at") && !$0.lowercased().hasPrefix("by") }
-                    
-                    if filteredComponents.count >= 2,
-                       let hourValue = Int(filteredComponents[0]),
-                       let minuteValue = Int(filteredComponents[1]) {
-                        hour = hourValue
-                        minute = minuteValue
-                        isPM = timeText.lowercased().contains("pm")
-                        return true
-                    }
-                } else {
-                    // Handle "at 3 PM" format
-                    let components = timeText.components(separatedBy: CharacterSet.letters.union(CharacterSet.whitespaces))
-                    let filteredComponents = components.filter { !$0.isEmpty }
-                    
-                    if let hourValue = Int(filteredComponents.last ?? "") {
-                        hour = hourValue
-                        minute = 0
-                        isPM = timeText.lowercased().contains("pm")
-                        return true
-                    }
-                }
-            }
-        }
-        
-        // Pattern 4: 24-hour time format - "15:30", "08:00"
-        let militaryTimePattern = #"(\d{1,2}):(\d{2})"#
-        if let timeRange = text.range(of: militaryTimePattern, options: .regularExpression) {
+        // Pattern 3: 24-hour format - "14:30", "09:15", etc.
+        let twentyFourHourPattern = #"(\d{1,2}):(\d{2})"#
+        if let timeRange = text.range(of: twentyFourHourPattern, options: .regularExpression) {
             let timeText = String(text[timeRange])
             let components = timeText.components(separatedBy: ":")
             
             if components.count == 2,
                let hourValue = Int(components[0]),
                let minuteValue = Int(components[1]),
-               hourValue >= 0 && hourValue <= 23,
+               hourValue >= 0 && hourValue <= 23 &&
                minuteValue >= 0 && minuteValue <= 59 {
                 hour = hourValue
                 minute = minuteValue
@@ -864,6 +831,94 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         }
         
         return false
+    }
+    
+    // ENHANCED: Helper method to extract minutes from "in X minutes" patterns
+    private func extractMinutesFromText(_ text: String) -> Int? {
+        // Patterns to match: "in 5 minutes", "in 10 min", "next 15 minutes", "in five minutes"
+        let patterns = [
+            #"in\s+(\d+)\s+minutes?"#,           // "in 5 minutes", "in 10 minute"
+            #"in\s+(\d+)\s+mins?"#,              // "in 5 mins", "in 10 min"
+            #"next\s+(\d+)\s+minutes?"#,         // "next 5 minutes"
+            #"next\s+(\d+)\s+mins?"#,            // "next 5 mins"
+            #"after\s+(\d+)\s+minutes?"#,        // "after 5 minutes"
+            #"after\s+(\d+)\s+mins?"#            // "after 5 mins"
+        ]
+        
+        // Also handle written numbers
+        let writtenNumbers = [
+            "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+            "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+            "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60
+        ]
+        
+        // Check numeric patterns first
+        for pattern in patterns {
+            if let range = text.range(of: pattern, options: .regularExpression) {
+                let matchText = String(text[range])
+                // Extract the number from the match
+                let numberPattern = #"\d+"#
+                if let numberRange = matchText.range(of: numberPattern, options: .regularExpression) {
+                    let numberText = String(matchText[numberRange])
+                    if let minutes = Int(numberText) {
+                        return minutes
+                    }
+                }
+            }
+        }
+        
+        // Check written number patterns
+        let writtenPatterns = [
+            #"in\s+(\w+)\s+minutes?"#,           // "in five minutes"
+            #"next\s+(\w+)\s+minutes?"#,         // "next ten minutes"
+            #"after\s+(\w+)\s+minutes?"#         // "after fifteen minutes"
+        ]
+        
+        for pattern in writtenPatterns {
+            if let range = text.range(of: pattern, options: .regularExpression) {
+                let matchText = String(text[range]).lowercased()
+                for (word, number) in writtenNumbers {
+                    if matchText.contains(word) {
+                        return number
+                    }
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    // ENHANCED: Helper method to remove time references from text
+    private func removeTimeReferencesFromText(_ originalText: String, _ lowercaseText: String) -> String {
+        var cleanedText = originalText
+        
+        // Patterns to remove
+        let patternsToRemove = [
+            #"in\s+\d+\s+minutes?"#,
+            #"in\s+\d+\s+mins?"#,
+            #"next\s+\d+\s+minutes?"#,
+            #"next\s+\d+\s+mins?"#,
+            #"after\s+\d+\s+minutes?"#,
+            #"after\s+\d+\s+mins?"#,
+            #"in\s+\w+\s+minutes?"#,     // for written numbers
+            #"next\s+\w+\s+minutes?"#,
+            #"after\s+\w+\s+minutes?"#
+        ]
+        
+        for pattern in patternsToRemove {
+            if let range = lowercaseText.range(of: pattern, options: .regularExpression) {
+                // Find corresponding range in original text
+                let startIndex = originalText.index(originalText.startIndex, offsetBy: lowercaseText.distance(from: lowercaseText.startIndex, to: range.lowerBound))
+                let endIndex = originalText.index(originalText.startIndex, offsetBy: lowercaseText.distance(from: lowercaseText.startIndex, to: range.upperBound))
+                let originalRange = startIndex..<endIndex
+                
+                cleanedText = cleanedText.replacingCharacters(in: originalRange, with: "")
+                break // Remove only the first match to avoid index issues
+            }
+        }
+        
+        return cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
