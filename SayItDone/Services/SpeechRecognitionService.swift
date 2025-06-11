@@ -39,8 +39,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "vadSensitivity") }
     }
     
-    // Completion handler for when speech recognition is complete
-    var onRecognitionComplete: ((String, Date?) -> Void)?
+    // Property for storing completion handler
+    public var onRecognitionComplete: ((String) -> Void)?
     
     // Add these properties to the class after the existing @Published variables
     private var silenceTimer: Timer?
@@ -54,7 +54,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     private let debounceInterval: TimeInterval = 0.3
     
     // Add a property to track if we're currently processing a completion
-    private var isProcessingCompletion = false
+    private var isProcessingRecognition = false
     
     // Stored transcribed text to use when processing is complete
     private var storedTranscribedText = ""
@@ -141,7 +141,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                     self.vadSilenceFrames = 0
                     
                     // Start recording if voice detected for enough consecutive frames
-                    if self.consecutiveVoiceFrames >= self.requiredVoiceFrames && !self.isRecording && !self.isProcessingCompletion {
+                    if self.consecutiveVoiceFrames >= self.requiredVoiceFrames && !self.isRecording && !self.isProcessingRecognition {
                         DispatchQueue.main.async {
                             print("VAD detected voice - starting recording")
                             self.startRecording()
@@ -199,7 +199,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         resetRecording()
         
         // Reset processing state
-        isProcessingCompletion = false
+        isProcessingRecognition = false
         
         // Reset last processed text to avoid duplicate tasks
         lastProcessedText = ""
@@ -289,8 +289,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                     self.isRecording = false
                     
                     // Process final text if we have it
-                    if !self.isProcessingCompletion {
-                        self.isProcessingCompletion = true
+                    if !self.isProcessingRecognition {
+                        self.isProcessingRecognition = true
                         
                         // Get the final text to process
                         let finalText = self.storedTranscribedText.isEmpty ? self.transcribedText : self.storedTranscribedText
@@ -306,20 +306,20 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                             self.transcribedText = ""
                             
                             // Call completion handler with the extracted task - IMMEDIATELY without any delay
-                            self.onRecognitionComplete?(title, dueDate)
+                            self.onRecognitionComplete?(title)
                             
                             // Reset processing state after a shorter delay to improve responsiveness
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                self.isProcessingCompletion = false
+                                self.isProcessingRecognition = false
                             }
                         } else {
                             // If there's no text to process, still notify completion to hide UI
                             self.transcribedText = "" // Ensure text is cleared
-                            self.onRecognitionComplete?("", nil)
+                            self.onRecognitionComplete?("")
                             
                             // Reset processing state after a shorter delay
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                self.isProcessingCompletion = false
+                                self.isProcessingRecognition = false
                             }
                         }
                     }
@@ -436,8 +436,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                 self.isRecording = false
                 
                 // Prevent duplicate processing
-                if !self.isProcessingCompletion {
-                    self.isProcessingCompletion = true
+                if !self.isProcessingRecognition {
+                    self.isProcessingRecognition = true
                     
                     // Process any final transcription if we have text and it hasn't been processed
                     if !currentText.isEmpty && currentText != self.lastProcessedText {
@@ -445,13 +445,13 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                         let (title, dueDate) = self.processTaskText(currentText)
                         
                         // Call completion handler with the extracted task
-                        self.onRecognitionComplete?(title, dueDate)
+                        self.onRecognitionComplete?(title)
                     } else {
                         // If there's no text to process, still notify completion to hide UI
-                        self.onRecognitionComplete?("", nil)
+                        self.onRecognitionComplete?("")
                     }
                     
-                    self.isProcessingCompletion = false
+                    self.isProcessingRecognition = false
                 }
             }
         }
@@ -459,10 +459,14 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // Reset the recording session
     public func resetRecording() {
-        // Cancel any previous recognition task
+        // Cancel any ongoing recognition tasks
         recognitionTask?.cancel()
         recognitionTask = nil
-        recognitionRequest = nil
+        
+        // Reset all state variables
+        isListening = false
+        isProcessingRecognition = false
+        transcribedText = ""
         
         // Stop audio engine if running
         if audioEngine.isRunning {
@@ -477,7 +481,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             self.transcribedText = ""
             self.lastProcessedText = ""
             self.storedTranscribedText = ""
-            self.isProcessingCompletion = false
+            self.isProcessingRecognition = false
         }
     }
     

@@ -37,6 +37,9 @@ struct TasksView: View {
     // Add this property at the top of the struct, near other state variables
     @State private var processingTask = false
     
+    // EMERGENCY FIX: Create a force updater
+    @State private var forceUpdateTasks: Bool = false
+    
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
@@ -60,12 +63,13 @@ struct TasksView: View {
                                     showUndoOption()
                                 }
                                 .id(task.id)
-                                .background(newTaskID == task.id ? Color.yellow.opacity(0.2) : Color.clear)
+                                .background(newTaskID == task.id ? Color.yellow.opacity(0.3) : Color.clear)
                                 .cornerRadius(8)
-                                .scaleEffect(newTaskID == task.id && showingNewTaskAnimation ? 1.03 : 1.0)
+                                .scaleEffect(newTaskID == task.id && showingNewTaskAnimation ? 1.05 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingNewTaskAnimation)
                             }
                         }
+                        .id(forceUpdateTasks) // EMERGENCY FIX: Force view to rebuild when this changes
                         .padding(.horizontal, 16)
                         .padding(.top, 20)
                     }
@@ -138,66 +142,52 @@ struct TasksView: View {
             }
             
             // Set up the speech service with improved feedback
-            speechService.onRecognitionComplete = { text, dueDate in
-                // Update UI immediately - CRITICAL FIX
-                withAnimation(.easeOut(duration: 0.1)) {
-                    showingRecordingIndicator = false
-                }
-                
+            speechService.onRecognitionComplete = { finalText in
                 // Only process non-empty tasks
-                if !text.isEmpty {
-                    // CRITICAL FIX: Create and add task immediately
-                    let newTask = Task(id: UUID(), title: text, dueDate: dueDate)
+                if !finalText.isEmpty {
+                    showingRecordingIndicator = false
                     
-                    DispatchQueue.main.async {
-                        // Add directly to the task manager's array for immediate display
-                        taskManager.addTaskDirectly(newTask)
-                        
-                        // Store ID for animation
-                        newTaskID = newTask.id
-                        
-                        // Ensure task is visible immediately
-                        showingNewTaskAnimation = true
-                        
-                        // Show feedback with very short animation
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            if let dueDate = dueDate {
-                                if Calendar.current.isDateInToday(dueDate) {
-                                    showFeedback(message: "Task scheduled for today")
-                                } else if Calendar.current.isDateInTomorrow(dueDate) {
-                                    showFeedback(message: "Task scheduled for tomorrow")
-                                } else if isDateInCurrentWeek(dueDate) {
-                                    let formatter = DateFormatter()
-                                    formatter.dateFormat = "EEEE"
-                                    let dayName = formatter.string(from: dueDate)
-                                    showFeedback(message: "Task scheduled for \(dayName)")
-                                } else {
-                                    let formatter = DateFormatter()
-                                    formatter.dateStyle = .medium
-                                    let dateString = formatter.string(from: dueDate)
-                                    showFeedback(message: "Task scheduled for \(dateString)")
-                                }
-                            } else {
-                                showFeedback(message: "Task added")
-                            }
+                    // CRITICAL FIX: Create task immediately without delay
+                    let newTask = Task(text: finalText, status: .notStarted)
+                    withAnimation(.spring()) {
+                        taskManager.tasks.insert(newTask, at: 0)
+                        // Force sort to run immediately
+                        taskManager.sortTasks()
+                    }
+                    
+                    // Show feedback
+                    if let dueDate = newTask.dueDate {
+                        if Calendar.current.isDateInToday(dueDate) {
+                            feedbackMessage = "Task scheduled for today"
+                        } else if Calendar.current.isDateInTomorrow(dueDate) {
+                            feedbackMessage = "Task scheduled for tomorrow"
+                        } else if isDateInCurrentWeek(dueDate) {
+                            let dateFormatter = DateFormatter()
+                            dateFormatter.dateFormat = "EEEE"
+                            let dayOfWeek = dateFormatter.string(from: dueDate)
+                            feedbackMessage = "Task scheduled for \(dayOfWeek)"
+                        } else {
+                            let dateFormatter = DateFormatter()
+                            dateFormatter.dateFormat = "MMM d"
+                            let formattedDate = dateFormatter.string(from: dueDate)
+                            feedbackMessage = "Task scheduled for \(formattedDate)"
                         }
-                        
-                        // Provide haptic feedback
-                        provideHapticFeedback(.success)
-                        
-                        // Reset animation state after delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation {
-                                showingNewTaskAnimation = false
-                                newTaskID = nil
-                            }
+                    } else {
+                        feedbackMessage = "Task added"
+                    }
+                    
+                    // Haptic feedback
+                    let generator = UINotificationFeedbackGenerator()
+                    generator.notificationOccurred(.success)
+                    
+                    // Reset animation state
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation {
+                            feedbackMessage = ""
                         }
                     }
                 } else {
-                    // No task to add, ensure recording indicator is hidden
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        showingRecordingIndicator = false
-                    }
+                    showingRecordingIndicator = false
                 }
             }
             

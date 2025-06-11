@@ -129,45 +129,38 @@ class TaskManager: ObservableObject {
         return true
     }
     
-    // Optimized sort implementation
-    private func sortTasks() {
+    // Public sort method that can be called directly
+    func sortTasks() {
+        let sortedTasks: [Task]
+        
         switch sortMethod {
         case .creationTime:
-            // Sort is expensive, only do when needed and on background thread
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                guard let self = self else { return }
-                
-                let sortedTasks = self.tasks.sorted { $0.id.uuidString > $1.id.uuidString }
-                
-                DispatchQueue.main.async {
-                    // Only update if order actually changed to prevent unnecessary UI updates
-                    if self.tasks != sortedTasks {
-                        self.tasks = sortedTasks
-                    }
+            sortedTasks = tasks.sorted { $0.id.uuidString > $1.id.uuidString }
+        case .dueDate:
+            sortedTasks = tasks.sorted { first, second in
+                // Tasks with no due date go to the bottom
+                if first.dueDate == nil && second.dueDate == nil {
+                    return first.id.uuidString > second.id.uuidString // Fall back to creation time
+                } else if first.dueDate == nil {
+                    return false
+                } else if second.dueDate == nil {
+                    return true
+                } else {
+                    return first.dueDate! < second.dueDate!
                 }
             }
-        case .dueDate:
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        }
+        
+        // Update on main thread
+        if Thread.isMainThread {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                self.tasks = sortedTasks
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                
-                let sortedTasks = self.tasks.sorted { first, second in
-                    // Tasks with no due date go to the bottom
-                    if first.dueDate == nil && second.dueDate == nil {
-                        return first.id.uuidString > second.id.uuidString // Fall back to creation time
-                    } else if first.dueDate == nil {
-                        return false
-                    } else if second.dueDate == nil {
-                        return true
-                    } else {
-                        return first.dueDate! < second.dueDate!
-                    }
-                }
-                
-                DispatchQueue.main.async {
-                    // Only update if order actually changed
-                    if self.tasks != sortedTasks {
-                        self.tasks = sortedTasks
-                    }
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.tasks = sortedTasks
                 }
             }
         }
