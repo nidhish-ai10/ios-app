@@ -8,10 +8,11 @@
 import SwiftUI
 
 struct MainView: View {
-    // Retrieve stored user name and login state
+    @ObservedObject var authService: AuthenticationService
     @AppStorage("userFirstName") private var userFirstName: String = ""
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
     @AppStorage("isDarkMode") private var isDarkMode = false
+    @AppStorage("userEmail") private var email: String = ""
     @State private var showingProfileOptions = false
     @State private var showingSettingsView = false
     @State private var selectedTab = 1 // Default to Home tab
@@ -60,10 +61,10 @@ struct MainView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .sheet(isPresented: $showingProfileOptions) {
-            AccountSheetView(isLoggedIn: $isLoggedIn, userFirstName: $userFirstName)
+            AccountSheetView(authService: authService, isLoggedIn: $isLoggedIn, email: $email)
         }
         .sheet(isPresented: $showingSettingsView) {
-            SettingsView()
+            SettingsView(authService: authService)
         }
         .onAppear {
             setupNotificationObservers()
@@ -71,7 +72,7 @@ struct MainView: View {
             // Apply dark mode setting on appear
             setAppearance()
         }
-        .onChange(of: isDarkMode) { newValue in
+        .onChange(of: isDarkMode) { oldValue, newValue in
             setAppearance()
         }
         .onDisappear {
@@ -145,7 +146,7 @@ struct MainView: View {
                                     .fill(pastelBlueDarker)
                                     .frame(width: 36, height: 36)
                                     .overlay(
-                                        Text(String(userFirstName.prefix(1)).uppercased())
+                                        Text(String(email.prefix(1)).uppercased())
                                             .foregroundColor(.white)
                                             .font(.system(size: 16, weight: .medium))
                                     )
@@ -226,14 +227,15 @@ struct MainView: View {
 
 // Modern iOS-style Account Sheet View
 struct AccountSheetView: View {
+    @ObservedObject var authService: AuthenticationService
     @Binding var isLoggedIn: Bool
-    @Binding var userFirstName: String
+    @Binding var email: String
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
         VStack(spacing: 0) {
             // Header with "Account" title
-            Text("Account")
+            Text("Account1")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
@@ -250,16 +252,16 @@ struct AccountSheetView: View {
                     .fill(Color(.systemGray5))
                     .frame(width: 40, height: 40)
                     .overlay(
-                        Text(String(userFirstName.prefix(1)))
+                        Text(String(email.prefix(1)))
                             .foregroundColor(.gray)
                     )
                 
                 // User name and "Account" label
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(userFirstName)
+                    Text(email)
                         .font(.system(size: 16, weight: .medium))
                     
-                    Text("Account")
+                    Text("Account2")
                         .font(.system(size: 14))
                         .foregroundColor(.gray)
                 }
@@ -303,7 +305,7 @@ struct AccountSheetView: View {
             
             // Logout option
             Button(action: {
-                userFirstName = ""
+                email = ""
                 isLoggedIn = false
                 dismiss()
             }) {
@@ -331,5 +333,7 @@ struct AccountSheetView: View {
 }
 
 #Preview {
-    MainView()
-} 
+    MainView(authService: AuthenticationService())
+}
+
+

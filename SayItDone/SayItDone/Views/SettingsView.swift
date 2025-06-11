@@ -9,11 +9,13 @@ import SwiftUI
 import LocalAuthentication
 
 struct SettingsView: View {
+    @AppStorage("userEmail") private var email: String = ""
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @AppStorage("userFirstName") private var userFirstName: String = ""
-    @AppStorage("userEmail") private var userEmail: String = "user@example.com"
+    @ObservedObject var authService: AuthenticationService
     @AppStorage("isLoggedIn") private var isLoggedIn: Bool = false
+    @State private var showingLogoutAlert = false
+    @State private var showingAccountSheet = false
     
     // Preferences
     @AppStorage("isDarkMode") private var isDarkMode = false
@@ -30,298 +32,319 @@ struct SettingsView: View {
     @AppStorage("isAutomaticSilenceDetection") private var isAutomaticSilenceDetection = true
     @AppStorage("isVADEnabled") private var isVADEnabled = false
     @AppStorage("vadSensitivity") private var vadSensitivity: Double = 0.5
-    
-    // Security
-    @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled = false
-    @AppStorage("isPrivacyModeEnabled") private var isPrivacyModeEnabled = false
+    @AppStorage("isFaceIDEnabled") private var isFaceIDEnabled: Bool = false
+    @AppStorage("isPrivacyModeEnabled") private var isPrivacyModeEnabled: Bool = false
     
     // App Info
-    private let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-    private let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+    
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+    }
     
     // Backup & Sync
-    @AppStorage("isCloudSyncEnabled") private var isCloudSyncEnabled = true
-    @AppStorage("lastSyncTime") private var lastSyncTime: Double = Date().timeIntervalSince1970
+    @AppStorage("isCloudSyncEnabled") private var isCloudSyncEnabled: Bool = true
+    @AppStorage("lastSyncTime") private var lastSyncTime: TimeInterval = Date().timeIntervalSince1970
     
     // For showing alerts
-    @State private var showingLogoutAlert = false
     @State private var showingPrivacyPolicy = false
     @State private var showingTermsOfService = false
     @State private var showingLicenses = false
     
-    var body: some View {
-        NavigationView {
-            Form {
-                // MARK: - Account Section
-                Section(header: Text("Account")) {
-                    HStack {
-                        Circle()
-                            .fill(Color(.systemGray5))
-                            .frame(width: 50, height: 50)
-                            .overlay(
-                                Text(String(userFirstName.prefix(1)).uppercased())
-                                    .foregroundColor(.gray)
-                                    .font(.system(size: 22, weight: .medium))
-                            )
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(userFirstName)
-                                .font(.headline)
-                            Text(userEmail)
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    .padding(.vertical, 8)
-                    
-                    Button(action: {
-                        showingLogoutAlert = true
-                    }) {
-                        HStack {
-                            Text("Logout")
-                                .foregroundColor(.red)
-                            Spacer()
-                            Image(systemName: "arrow.right.square")
-                                .foregroundColor(.red)
-                        }
-                    }
-                    .alert(isPresented: $showingLogoutAlert) {
-                        Alert(
-                            title: Text("Logout"),
-                            message: Text("Are you sure you want to logout?"),
-                            primaryButton: .destructive(Text("Logout")) {
-                                userFirstName = ""
-                                isLoggedIn = false
-                                dismiss()
-                            },
-                            secondaryButton: .cancel()
-                        )
-                    }
-                }
-                
-                // MARK: - Preferences Section
-                Section(header: Text("Preferences")) {
-                    Toggle("Dark Mode", isOn: $isDarkMode)
-                        .onChange(of: isDarkMode) { oldValue, newValue in
-                            // Apply the color scheme change using the modern API
-                            let scenes = UIApplication.shared.connectedScenes
-                            let windowScene = scenes.first as? UIWindowScene
-                            let window = windowScene?.windows.first
-                            window?.overrideUserInterfaceStyle = newValue ? .dark : .light
-                        }
-                    
-                    // Sound effects toggle
-                    HStack {
-                        Label("Sound Effects", systemImage: "speaker.wave.2")
-                        Spacer()
-                        Toggle("", isOn: $isSoundEnabled)
-                            .labelsHidden()
-                            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
-                            .padding(.trailing, 4)
-                    }
-                    
-                    // Haptic feedback toggle
-                    HStack {
-                        Label("Haptic Feedback", systemImage: "iphone.radiowaves.left.and.right")
-                        Spacer()
-                        Toggle("", isOn: $isHapticsEnabled)
-                            .labelsHidden()
-                            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
-                            .padding(.trailing, 4)
-                    }
-                    
-                    // Microphone sensitivity
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Label("Microphone Sensitivity", systemImage: "mic.slash")
-                            Spacer()
-                        }
-                        
-                        HStack {
-                            Text("Low")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
-                            Slider(value: $sensitivityValue, in: 0...100, step: 1)
-                                .accentColor(.accentColor)
-                            
-                            Text("High")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                    }
-                    .onChange(of: sensitivityValue) { oldValue, newValue in
-                        // Update microphone sensitivity in user defaults
-                        UserDefaults.standard.set(newValue, forKey: "microphoneSensitivity")
-                    }
-                }
-                
-                // MARK: - Simplified Notifications Section
-                Section(header: Text("Notifications")) {
-                    Toggle("Enable Notifications", isOn: $isNotificationsEnabled)
-                }
-                
-                // MARK: - Voice Input Section
-                Section(header: Text("Voice Input")) {
-                    Toggle("Enable Voice Input", isOn: $isVoiceInputEnabled)
-                    
-                    if isVoiceInputEnabled {
-                        Toggle("Auto-Detect Silence", isOn: $isAutomaticSilenceDetection)
-                        
-                        // Voice Activity Detection (Auto-Listening)
-                        Toggle("Auto-Listening Mode", isOn: $isVADEnabled)
-                            .onChange(of: isVADEnabled) { oldValue, newValue in
-                                if newValue {
-                                    // Post notification to check permissions when enabling
-                                    NotificationCenter.default.post(name: Notification.Name("CheckVADPermissions"), object: nil)
-                                }
-                            }
-                        
-                        if isVADEnabled {
-                            VStack(alignment: .leading) {
-                                Text("Auto-Listening Sensitivity: \(Int(vadSensitivity * 100))%")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                
-                                HStack {
-                                    Text("Less")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                    
-                                    Slider(value: $vadSensitivity, in: 0...1, step: 0.05)
-                                        .onChange(of: vadSensitivity) { oldValue, newValue in
-                                            // Post notification that sensitivity changed
-                                            NotificationCenter.default.post(
-                                                name: Notification.Name("VADSensitivityChanged"),
-                                                object: nil,
-                                                userInfo: ["sensitivity": newValue]
-                                            )
-                                        }
-                                    
-                                    Text("More")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                                
-                                Text("Higher sensitivity detects softer speech but may trigger more often")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                                    .padding(.top, 4)
-                            }
-                            .padding(.vertical, 4)
-                        }
-                        
-                        VStack(alignment: .leading) {
-                            Text("Manual Recording Sensitivity: \(Int(sensitivityValue * 100))%")
-                                .font(.subheadline)
-                                .foregroundColor(.gray)
-                            
-                            HStack {
-                                Image(systemName: "speaker.wave.1")
-                                    .foregroundColor(.gray)
-                                
-                                Slider(value: $sensitivityValue, in: 0...1, step: 0.05)
-                                    .onChange(of: sensitivityValue) { oldValue, newValue in
-                                        voiceSensitivity = newValue
-                                    }
-                                    .onAppear {
-                                        sensitivityValue = voiceSensitivity
-                                    }
-                                
-                                Image(systemName: "speaker.wave.3")
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-                
-                // MARK: - Security & Privacy Section
-                Section(header: Text("Security & Privacy")) {
-                    Toggle("Face ID / Touch ID", isOn: $isFaceIDEnabled)
-                        .onChange(of: isFaceIDEnabled) { oldValue, newValue in
-                            if newValue {
-                                authenticateWithBiometrics()
-                            }
-                        }
-                    
-                    Toggle("Privacy Mode", isOn: $isPrivacyModeEnabled)
-                        .onChange(of: isPrivacyModeEnabled) { oldValue, newValue in
-                            // Would hide sensitive task content when enabled
-                        }
-                }
-                
-                // MARK: - Backup & Sync Section
-                Section(header: Text("Backup & Sync")) {
-                    Toggle("iCloud Sync", isOn: $isCloudSyncEnabled)
-                    
-                    HStack {
-                        Text("Last Synchronized")
-                        Spacer()
-                        Text(lastSyncTimeFormatted)
-                            .foregroundColor(.gray)
-                    }
-                    
-                    Button(action: {
-                        // Would trigger manual sync
-                        lastSyncTime = Date().timeIntervalSince1970
-                    }) {
-                        HStack {
-                            Text("Sync Now")
-                            Spacer()
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
-                }
-                
-                // MARK: - App Info Section
-                Section(header: Text("App Info")) {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text("\(appVersion) (\(buildNumber))")
-                            .foregroundColor(.gray)
-                    }
-                    
-                    NavigationLink {
-                        LicensesView()
-                    } label: {
-                        Text("Open Source Licenses")
-                    }
-                }
-                
-                // MARK: - Legal Section
-                Section(header: Text("Legal")) {
-                    NavigationLink {
-                        PrivacyPolicyView()
-                    } label: {
-                        Text("Privacy Policy")
-                    }
-                    
-                    NavigationLink {
-                        TermsOfServiceView()
-                    } label: {
-                        Text("Terms of Service")
-                    }
-                }
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        // Provide light haptic feedback when closing settings (if enabled)
-                        if isHapticsEnabled {
-                            let generator = UIImpactFeedbackGenerator(style: .light)
-                            generator.impactOccurred()
-                        }
-                        
-                        dismiss()
-                    }
-                }
+var body: some View {
+    NavigationView {
+        settingsContent
+    }
+}
+
+private var settingsContent: some View {
+    List {
+        accountSection
+        preferencesSection
+        notificationsSection
+        voiceInputSection
+        securitySection
+        syncSection
+        appInfoSection
+        legalSection
+    }
+    .navigationTitle("Settings")
+    .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button("Done") {
+                dismiss()
             }
         }
     }
+    .alert("Log Out", isPresented: $showingLogoutAlert) {
+        Button("Cancel", role: .cancel) { }
+        Button("Log Out", role: .destructive) {
+            authService.signOut()
+            dismiss()
+        }
+    } message: {
+        Text("Are you sure you want to log out?")
+    }
+    .sheet(isPresented: $showingAccountSheet) {
+        AccountSheetView(
+            authService: authService,
+            isLoggedIn: $isLoggedIn,
+            email: $email
+        )
+    }
+}
+
+private var accountSection: some View {
+    Section {
+        HStack {
+            Circle()
+                .fill(Color(red: 150/255, green: 190/255, blue: 255/255))
+                .frame(width: 50, height: 50)
+                .overlay(
+                    Text(String(authService.currentUser?.email.prefix(1) ?? "").uppercased())
+                        .foregroundColor(.white)
+                        .font(.system(size: 22, weight: .medium))
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(authService.currentUser?.email ?? "")
+                    .font(.headline)
+                Text("Account")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
+        }
+        .padding(.vertical, 8)
+
+        Button(action: {
+            showingLogoutAlert = true
+        }) {
+            HStack {
+                Text("Logout")
+                    .foregroundColor(.red)
+                Spacer()
+                Image(systemName: "arrow.right.square")
+                    .foregroundColor(.red)
+            }
+        }
+    }
+}
+
+private var preferencesSection: some View {
+    Section(header: Text("Preferences")) {
+        Toggle("Dark Mode", isOn: $isDarkMode)
+            .onChange(of: isDarkMode) { oldValue, newValue in
+                // Apply the color scheme change using the modern API
+                let scenes = UIApplication.shared.connectedScenes
+                let windowScene = scenes.first as? UIWindowScene
+                let window = windowScene?.windows.first
+                window?.overrideUserInterfaceStyle = newValue ? .dark : .light
+            }
+
+        // Sound effects toggle
+        HStack {
+            Label("Sound Effects", systemImage: "speaker.wave.2")
+            Spacer()
+            Toggle("", isOn: $isSoundEnabled)
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                .padding(.trailing, 4)
+        }
+
+        // Haptic feedback toggle
+        HStack {
+            Label("Haptic Feedback", systemImage: "iphone.radiowaves.left.and.right")
+            Spacer()
+            Toggle("", isOn: $isHapticsEnabled)
+                .labelsHidden()
+                .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                .padding(.trailing, 4)
+        }
+
+        // Microphone sensitivity
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Microphone Sensitivity", systemImage: "mic.slash")
+                Spacer()
+            }
+
+            HStack {
+                Text("Low")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+
+                Slider(value: $sensitivityValue, in: 0...100, step: 1)
+                    .accentColor(.accentColor)
+
+                Text("High")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+        }
+        .onChange(of: sensitivityValue) { oldValue, newValue in
+            // Update microphone sensitivity in user defaults
+            UserDefaults.standard.set(newValue, forKey: "microphoneSensitivity")
+        }
+    }
+}
+
+private var notificationsSection: some View {
+    Section(header: Text("Notifications")) {
+        Toggle("Enable Notifications", isOn: $isNotificationsEnabled)
+    }
+}
+
+private var voiceInputSection: some View {
+    Section(header: Text("Voice Input")) {
+        Toggle("Enable Voice Input", isOn: $isVoiceInputEnabled)
+
+        if isVoiceInputEnabled {
+            Toggle("Auto-Detect Silence", isOn: $isAutomaticSilenceDetection)
+
+            // Voice Activity Detection (Auto-Listening)
+            Toggle("Auto-Listening Mode", isOn: $isVADEnabled)
+                .onChange(of: isVADEnabled) { oldValue, newValue in
+                    if newValue {
+                        // Post notification to check permissions when enabling
+                        NotificationCenter.default.post(name: Notification.Name("CheckVADPermissions"), object: nil)
+                    }
+                }
+
+            if isVADEnabled {
+                VStack(alignment: .leading) {
+                    Text("Auto-Listening Sensitivity: \(Int(vadSensitivity * 100))%")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+
+                    HStack {
+                        Text("Less")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+
+                        Slider(value: $vadSensitivity, in: 0...1, step: 0.05)
+                            .onChange(of: vadSensitivity) { oldValue, newValue in
+                                // Post notification that sensitivity changed
+                                NotificationCenter.default.post(
+                                    name: Notification.Name("VADSensitivityChanged"),
+                                    object: nil,
+                                    userInfo: ["sensitivity": newValue]
+                                )
+                            }
+
+                        Text("More")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+
+                    Text("Higher sensitivity detects softer speech but may trigger more often")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .padding(.top, 4)
+                }
+                .padding(.vertical, 4)
+            }
+
+            VStack(alignment: .leading) {
+                Text("Manual Recording Sensitivity: \(Int(sensitivityValue * 100))%")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+
+                HStack {
+                    Image(systemName: "speaker.wave.1")
+                        .foregroundColor(.gray)
+
+                    Slider(value: $sensitivityValue, in: 0...1, step: 0.05)
+                        .onChange(of: sensitivityValue) { oldValue, newValue in
+                            voiceSensitivity = newValue
+                        }
+                        .onAppear {
+                            sensitivityValue = voiceSensitivity
+                        }
+
+                    Image(systemName: "speaker.wave.3")
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+private var securitySection: some View {
+    Section(header: Text("Security & Privacy")) {
+        Toggle("Face ID / Touch ID", isOn: $isFaceIDEnabled)
+            .onChange(of: isFaceIDEnabled) { oldValue, newValue in
+                if newValue {
+                    authenticateWithBiometrics()
+                }
+            }
+
+        Toggle("Privacy Mode", isOn: $isPrivacyModeEnabled)
+            .onChange(of: isPrivacyModeEnabled) { oldValue, newValue in
+                // Would hide sensitive task content when enabled
+            }
+    }
+}
+
+private var syncSection: some View {
+    Section(header: Text("Backup & Sync")) {
+        Toggle("iCloud Sync", isOn: $isCloudSyncEnabled)
+
+        HStack {
+            Text("Last Synchronized")
+            Spacer()
+            Text(lastSyncTimeFormatted)
+                .foregroundColor(.gray)
+        }
+
+        Button(action: {
+            // Would trigger manual sync
+            lastSyncTime = Date().timeIntervalSince1970
+        }) {
+            HStack {
+                Text("Sync Now")
+                Spacer()
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+    }
+}
+
+private var appInfoSection: some View {
+    Section(header: Text("App Info")) {
+        HStack {
+            Text("Version")
+            Spacer()
+            Text("\(appVersion) (\(buildNumber))")
+                .foregroundColor(.gray)
+        }
+
+        NavigationLink {
+            LicensesView()
+        } label: {
+            Text("Open Source Licenses")
+        }
+    }
+}
+
+private var legalSection: some View {
+    Section(header: Text("Legal")) {
+        NavigationLink {
+            PrivacyPolicyView()
+        } label: {
+            Text("Privacy Policy")
+        }
+
+        NavigationLink {
+            TermsOfServiceView()
+        } label: {
+            Text("Terms of Service")
+        }
+    }
+}
     
     // MARK: - Helper properties and methods
     
@@ -469,6 +492,6 @@ struct LicensesView: View {
 
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {
-        SettingsView()
+        SettingsView(authService: AuthenticationService())
     }
-} 
+}

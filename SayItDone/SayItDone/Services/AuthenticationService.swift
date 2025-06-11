@@ -59,6 +59,7 @@ class AuthenticationService: ObservableObject {
                 self.currentUser = user
                 self.isAuthenticated = true
                 self.error = nil
+                UserDefaults.standard.set(user.email, forKey: "userEmail")
             }
         } catch {
             await MainActor.run {
@@ -77,6 +78,7 @@ class AuthenticationService: ObservableObject {
                 self.currentUser = user
                 self.isAuthenticated = true
                 self.error = nil
+                UserDefaults.standard.set(user.email, forKey: "userEmail")
             }
         } catch {
             await MainActor.run {

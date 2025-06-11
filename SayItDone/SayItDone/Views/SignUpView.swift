@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SignUpView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var authService = AuthenticationService()
+    @ObservedObject var authService: AuthenticationService
     
     @State private var email = ""
     @State private var password = ""
@@ -132,5 +132,5 @@ struct SignUpView: View {
 }
 
 #Preview {
-    SignUpView()
+    SignUpView(authService: AuthenticationService())
 } 
