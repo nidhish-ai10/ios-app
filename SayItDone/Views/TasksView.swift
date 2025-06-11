@@ -166,7 +166,7 @@ struct TasksView: View {
                             showingNewTaskAnimation = true
                             
                             // Show success feedback
-                            feedbackMessage = "Task added: \(finalText)"
+                            feedbackMessage = "Task added! Say another task to continue."
                             showingFeedback = true
                             
                             // Provide haptic feedback
@@ -181,25 +181,25 @@ struct TasksView: View {
                                 }
                             }
                             
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                                 withAnimation {
                                     showingFeedback = false
                                 }
                             }
                         } else {
                             print("CRITICAL DEBUG: Duplicate task detected, not adding")
-                            feedbackMessage = "Task already exists"
+                            feedbackMessage = "Task already exists - try a different one"
                             showingFeedback = true
                             
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                                 withAnimation {
                                     showingFeedback = false
                                 }
                             }
                         }
                         
-                        // Reset processing flag after a short delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        // Reset processing flag if it was set
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                             processingTask = false
                         }
                     }
@@ -209,7 +209,7 @@ struct TasksView: View {
                         showingRecordingIndicator = false
                         
                         // Reset processing flag if it was set
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                             processingTask = false
                         }
                     }

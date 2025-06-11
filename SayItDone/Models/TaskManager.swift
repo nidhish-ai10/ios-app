@@ -278,22 +278,33 @@ class TaskManager: ObservableObject {
         }
     }
     
-    // Enhanced duplicate detection method
+    // Enhanced duplicate detection method - less strict to allow similar tasks
     func hasDuplicateTask(title: String) -> Bool {
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        // Only consider it a duplicate if it's exactly the same (very strict matching)
         return tasks.contains { existingTask in
             let existingTitle = existingTask.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            // Only block if titles are exactly identical
             return existingTitle == normalizedTitle
         }
     }
     
-    // Optimized task addition with duplicate prevention
+    // More lenient task addition - allows multiple similar tasks
     func addTaskIfNotDuplicate(title: String, dueDate: Date?) -> (success: Bool, taskID: UUID?) {
-        print("DEBUG: Checking for duplicate task with title: \(title)")
+        print("DEBUG: Checking for exact duplicate task with title: \(title)")
         
-        // Check for duplicates first
-        if hasDuplicateTask(title: title) {
-            print("DEBUG: Duplicate task detected, not adding")
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        // Only prevent if it's an exact match within the last 5 seconds (to prevent immediate duplicates)
+        let recentDuplicates = tasks.filter { existingTask in
+            let existingTitle = existingTask.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let timeDifference = Date().timeIntervalSince(existingTask.createdAt)
+            return existingTitle == normalizedTitle && timeDifference < 5.0
+        }
+        
+        if !recentDuplicates.isEmpty {
+            print("DEBUG: Recent duplicate task detected, not adding")
             return (false, nil)
         }
         
