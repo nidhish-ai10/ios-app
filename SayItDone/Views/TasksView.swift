@@ -170,9 +170,18 @@ struct TasksView: View {
                                     self.provideHapticFeedback(.success)
                                 },
                                 completion: { result in
-                                    // Reset processing state regardless of success/failure
-                                    self.processingTask = false
-                                    self.speechService.forceRestartVAD()
+                                    // Ensure VAD restart happens on main thread with proper timing
+                                    DispatchQueue.main.async {
+                                        // Reset processing state regardless of success/failure
+                                        self.processingTask = false
+                                        
+                                        // Add a longer delay to ensure all UI updates and speech synthesis complete
+                                        // This is critical for allowing multiple GPT-4 questions
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                            print("🎤 Restarting VAD after GPT-4 interaction (with extended delay)")
+                                            self.speechService.forceRestartVAD()
+                                        }
+                                    }
                                 }
                             )
                         } else {

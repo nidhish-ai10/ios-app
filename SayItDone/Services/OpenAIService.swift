@@ -41,8 +41,9 @@ class OpenAIService: NSObject, ObservableObject {
     @Published var speechPitch: Float = 1.0 // Default pitch (0.5 - 2.0)
     @Published var speechVolume: Float = 1.0 // Default volume (0.0 - 1.0)
     
-    // Speech completion callback
-    var onSpeechComplete: (() -> Void)?
+    // Speech completion callback - using a queue to handle multiple callbacks
+    private var speechCompletionCallbacks: [() -> Void] = []
+    private let callbackQueue = DispatchQueue(label: "speechCallbacks", qos: .userInitiated)
     
     override init() {
         super.init()
@@ -349,10 +350,14 @@ class OpenAIService: NSObject, ObservableObject {
                     showFeedback("🤖 \(response)", 4.0)
                     provideHaptic() // Success haptic
                     
-                    // Step 4: Speak the response
+                    // Step 4: Speak the response with completion callback
                     self.readGPT4ResponseAloud(response) {
-                        print("✅ Complete GPT-4 pipeline finished")
-                        completion(.success(response))
+                        // Wait a moment after speech completes before calling completion
+                        // This ensures UI updates and speech synthesis are fully done
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            print("✅ Complete GPT-4 pipeline finished")
+                            completion(.success(response))
+                        }
                     }
                     
                 case .failure(let error):
@@ -367,7 +372,10 @@ class OpenAIService: NSObject, ObservableObject {
                         }
                     }
                     
-                    completion(.failure(error))
+                    // For errors, call completion after a short delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        completion(.failure(error))
+                    }
                 }
             }
         }
@@ -394,6 +402,64 @@ class OpenAIService: NSObject, ObservableObject {
             }
         }
         return "Something went wrong"
+    }
+    
+    /// Reads GPT-4 response text aloud with optimized settings for AI responses
+    /// - Parameters:
+    ///   - responseText: The GPT-4 response text to speak
+    ///   - completion: Optional completion handler called when speech finishes
+    func readGPT4ResponseAloud(_ responseText: String, completion: (() -> Void)? = nil) {
+        // Stop any current speech
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
+        }
+        
+        // Validate input
+        guard !responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("TTS: Cannot speak empty GPT-4 response")
+            completion?()
+            return
+        }
+        
+        // Add completion callback to queue if provided
+        if let completion = completion {
+            callbackQueue.async {
+                self.speechCompletionCallbacks.append(completion)
+            }
+        }
+        
+        // Create speech utterance with GPT-4 optimized settings
+        let utterance = AVSpeechUtterance(string: responseText)
+        
+        // Optimized settings for AI responses
+        utterance.rate = 0.55 // Slightly faster for conversational feel
+        utterance.pitchMultiplier = 1.1 // Slightly higher pitch for clarity
+        utterance.volume = 0.9 // High volume for clear delivery
+        
+        // Use a natural-sounding voice
+        if let voice = AVSpeechSynthesisVoice(language: "en-US") {
+            utterance.voice = voice
+        }
+        
+        // Configure audio session for speech
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try audioSession.setActive(true)
+        } catch {
+            print("TTS: Failed to configure audio session: \(error)")
+            // If audio session fails, still call completion
+            completion?()
+            return
+        }
+        
+        // Update state and speak
+        DispatchQueue.main.async {
+            self.isSpeaking = true
+        }
+        
+        speechSynthesizer.speak(utterance)
+        print("TTS: Reading GPT-4 response: '\(responseText.prefix(50))...'")
     }
 }
 
@@ -504,7 +570,9 @@ extension OpenAIService {
         }
         
         // Set completion callback
-        onSpeechComplete = completion
+        callbackQueue.async {
+            completion?()
+        }
         
         // Create speech utterance
         let utterance = AVSpeechUtterance(string: text)
@@ -609,8 +677,20 @@ extension OpenAIService: AVSpeechSynthesizerDelegate {
         DispatchQueue.main.async {
             self.isSpeaking = false
         }
-        print("TTS: Speech finished")
-        onSpeechComplete?()
+        print("TTS: Speech finished - executing completion callbacks")
+        
+        // Execute all completion callbacks
+        callbackQueue.async {
+            let callbacks = self.speechCompletionCallbacks
+            self.speechCompletionCallbacks.removeAll()
+            
+            // Execute callbacks on main thread
+            DispatchQueue.main.async {
+                for callback in callbacks {
+                    callback()
+                }
+            }
+        }
     }
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didPause utterance: AVSpeechUtterance) {
@@ -625,60 +705,19 @@ extension OpenAIService: AVSpeechSynthesizerDelegate {
         DispatchQueue.main.async {
             self.isSpeaking = false
         }
-        print("TTS: Speech cancelled")
-        onSpeechComplete?()
-    }
-    
-    // MARK: - GPT-4 Response Speech Function
-    
-    /// Reads GPT-4 response text aloud with optimized settings for AI responses
-    /// - Parameters:
-    ///   - responseText: The GPT-4 response text to speak
-    ///   - completion: Optional completion handler called when speech finishes
-    func readGPT4ResponseAloud(_ responseText: String, completion: (() -> Void)? = nil) {
-        // Stop any current speech
-        if speechSynthesizer.isSpeaking {
-            speechSynthesizer.stopSpeaking(at: AVSpeechBoundary.immediate)
+        print("TTS: Speech cancelled - executing completion callbacks")
+        
+        // Execute all completion callbacks even when cancelled
+        callbackQueue.async {
+            let callbacks = self.speechCompletionCallbacks
+            self.speechCompletionCallbacks.removeAll()
+            
+            // Execute callbacks on main thread
+            DispatchQueue.main.async {
+                for callback in callbacks {
+                    callback()
+                }
+            }
         }
-        
-        // Validate input
-        guard !responseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            print("TTS: Cannot speak empty GPT-4 response")
-            completion?()
-            return
-        }
-        
-        // Set completion callback
-        onSpeechComplete = completion
-        
-        // Create speech utterance with GPT-4 optimized settings
-        let utterance = AVSpeechUtterance(string: responseText)
-        
-        // Optimized settings for AI responses
-        utterance.rate = 0.55 // Slightly faster for conversational feel
-        utterance.pitchMultiplier = 1.1 // Slightly higher pitch for clarity
-        utterance.volume = 0.9 // High volume for clear delivery
-        
-        // Use a natural-sounding voice
-        if let voice = AVSpeechSynthesisVoice(language: "en-US") {
-            utterance.voice = voice
-        }
-        
-        // Configure audio session for speech
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-            try audioSession.setActive(true)
-        } catch {
-            print("TTS: Failed to configure audio session: \(error)")
-        }
-        
-        // Update state and speak
-        DispatchQueue.main.async {
-            self.isSpeaking = true
-        }
-        
-        speechSynthesizer.speak(utterance)
-        print("TTS: Reading GPT-4 response: '\(responseText.prefix(50))...'")
     }
 } 
