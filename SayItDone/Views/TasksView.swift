@@ -142,13 +142,13 @@ struct TasksView: View {
             }
             
             // Set up the speech service with improved feedback
-            speechService.onRecognitionComplete = { finalText in
+            speechService.onRecognitionComplete = { finalText, dueDate in
                 // Only process non-empty tasks
                 if !finalText.isEmpty {
                     showingRecordingIndicator = false
                     
                     // CRITICAL FIX: Create task immediately without delay
-                    let newTask = Task(text: finalText, status: .notStarted)
+                    let newTask = Task(id: UUID(), title: finalText, dueDate: dueDate)
                     withAnimation(.spring()) {
                         taskManager.tasks.insert(newTask, at: 0)
                         // Force sort to run immediately

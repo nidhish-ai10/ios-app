@@ -40,7 +40,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     }
     
     // Property for storing completion handler
-    public var onRecognitionComplete: ((String) -> Void)?
+    public var onRecognitionComplete: ((String, Date?) -> Void)?
     
     // Add these properties to the class after the existing @Published variables
     private var silenceTimer: Timer?
@@ -306,7 +306,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                             self.transcribedText = ""
                             
                             // Call completion handler with the extracted task - IMMEDIATELY without any delay
-                            self.onRecognitionComplete?(title)
+                            self.onRecognitionComplete?(title, dueDate)
                             
                             // Reset processing state after a shorter delay to improve responsiveness
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -315,7 +315,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                         } else {
                             // If there's no text to process, still notify completion to hide UI
                             self.transcribedText = "" // Ensure text is cleared
-                            self.onRecognitionComplete?("")
+                            self.onRecognitionComplete?("", nil)
                             
                             // Reset processing state after a shorter delay
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -445,10 +445,10 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                         let (title, dueDate) = self.processTaskText(currentText)
                         
                         // Call completion handler with the extracted task
-                        self.onRecognitionComplete?(title)
+                        self.onRecognitionComplete?(title, dueDate)
                     } else {
                         // If there's no text to process, still notify completion to hide UI
-                        self.onRecognitionComplete?("")
+                        self.onRecognitionComplete?("", nil)
                     }
                     
                     self.isProcessingRecognition = false
