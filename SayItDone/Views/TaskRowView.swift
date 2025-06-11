@@ -23,18 +23,20 @@ struct TaskRowView: View {
     
     var body: some View {
         ZStack {
-            // Background for delete action - lighter memory footprint using RoundedRectangle
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.red)
-                .overlay(
-                    HStack {
-                        Spacer()
-                        Image(systemName: "trash.fill")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                            .padding(.trailing, 25)
-                    }
-                )
+            // Background for delete action - only show when swiped
+            if isSwiped || offset < -10 {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.red)
+                    .overlay(
+                        HStack {
+                            Spacer()
+                            Image(systemName: "trash.fill")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                                .padding(.trailing, 25)
+                        }
+                    )
+            }
             
             // Task content
             HStack(spacing: 15) {

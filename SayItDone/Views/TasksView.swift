@@ -134,62 +134,60 @@ struct TasksView: View {
             }
         }
         .onAppear {
+            print("TasksView: Loaded with \(taskManager.tasks.count) tasks")
+            
             if speechService.isListening {
                 listenPulse = true
             }
             
             // Set up the speech service with improved feedback
             speechService.onRecognitionComplete = { finalText, dueDate in
-                print("CRITICAL DEBUG: Recognition complete with text: \(finalText), dueDate: \(String(describing: dueDate))")
+                print("RECOGNITION: Complete with text: '\(finalText)'")
                 
-                // Only process non-empty tasks and prevent duplicates
+                // Only process non-empty tasks and prevent rapid duplicates
                 if !finalText.isEmpty && !processingTask {
-                    // Set processing flag to prevent duplicate additions
+                    // Set processing flag to prevent rapid duplicates
                     processingTask = true
                     
                     // IMPORTANT: Force UI updates to happen on main thread
                     DispatchQueue.main.async {
-                        print("CRITICAL DEBUG: Creating single task and updating UI")
                         showingRecordingIndicator = false
                         
                         // Use TaskManager's duplicate-prevention method
                         let result = taskManager.addTaskIfNotDuplicate(title: finalText, dueDate: dueDate)
+                        print("TASK: Addition result: success=\(result.success)")
                         
-                        if result.success, let newTaskID = result.taskID {
-                            print("CRITICAL DEBUG: Added task with ID: \(newTaskID), total count: \(taskManager.tasks.count)")
-                            
+                        if result.success {
                             // Show success feedback
-                            feedbackMessage = "Task added! Say another task to continue."
-                            showingFeedback = true
+                            showFeedback(message: "Task added!")
+                            provideHapticFeedback(.success)
                             
-                            // Provide haptic feedback
-                            let generator = UINotificationFeedbackGenerator()
-                            generator.notificationOccurred(.success)
-                            
-                            // Reset processing flag if it was set
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                processingTask = false
-                            }
+                            // Force UI refresh for immediate visibility
+                            forceUpdateTasks.toggle()
                         } else {
-                            print("CRITICAL DEBUG: Duplicate task detected, not adding")
-                            feedbackMessage = "Task already exists - try a different one"
-                            showingFeedback = true
+                            // Show duplicate feedback
+                            showFeedback(message: "Similar task already exists")
+                            provideHapticFeedback(.warning)
+                        }
+                        
+                        // CRITICAL FIX: Restart VAD after processing to allow continuous task addition
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            processingTask = false
                             
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                withAnimation {
-                                    showingFeedback = false
-                                }
-                            }
+                            // Use the new restart method for cleaner VAD management
+                            speechService.restartVADIfNeeded()
                         }
                     }
                 } else {
                     DispatchQueue.main.async {
-                        print("CRITICAL DEBUG: Empty text or already processing, hiding recording indicator")
                         showingRecordingIndicator = false
                         
-                        // Reset processing flag if it was set
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        // CRITICAL FIX: Also restart VAD for empty text case
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             processingTask = false
+                            
+                            // Use the new restart method for cleaner VAD management
+                            speechService.restartVADIfNeeded()
                         }
                     }
                 }
@@ -597,8 +595,8 @@ struct TasksView: View {
         feedbackMessage = message
         showingFeedback = true
         
-        // Hide after 3 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        // Hide after 2 seconds instead of 3 for faster interface
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation {
                 self.showingFeedback = false
             }

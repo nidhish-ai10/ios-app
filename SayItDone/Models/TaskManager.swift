@@ -292,19 +292,19 @@ class TaskManager: ObservableObject {
     
     // More lenient task addition - allows multiple similar tasks
     func addTaskIfNotDuplicate(title: String, dueDate: Date?) -> (success: Bool, taskID: UUID?) {
-        print("DEBUG: Checking for exact duplicate task with title: \(title)")
+        print("TaskManager: Adding task '\(title)'")
         
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
-        // Only prevent if it's an exact match within the last 5 seconds (to prevent immediate duplicates)
+        // Only prevent if it's an exact match within the last 1 second (to prevent immediate duplicates only)
         let recentDuplicates = tasks.filter { existingTask in
             let existingTitle = existingTask.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             let timeDifference = Date().timeIntervalSince(existingTask.createdAt)
-            return existingTitle == normalizedTitle && timeDifference < 5.0
+            return existingTitle == normalizedTitle && timeDifference < 1.0
         }
         
         if !recentDuplicates.isEmpty {
-            print("DEBUG: Recent duplicate task detected, not adding")
+            print("TaskManager: Recent duplicate detected, skipping")
             return (false, nil)
         }
         
@@ -314,9 +314,23 @@ class TaskManager: ObservableObject {
         // Create the task with the pre-generated ID
         let newTask = Task(id: lastTaskID, title: title, dueDate: dueDate)
         
-        // Add the task to the array immediately on the current thread
-        tasks.append(newTask)
-        print("DEBUG: Task added successfully, current task count: \(tasks.count)")
+        // CRITICAL FIX: Ensure UI updates happen on main thread
+        if Thread.isMainThread {
+            // Add the task with animation to trigger @Published notification
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                tasks.append(newTask)
+            }
+            print("TaskManager: Task added, total: \(tasks.count)")
+        } else {
+            // If not on main thread, dispatch to main thread
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    self.tasks.append(newTask)
+                }
+                print("TaskManager: Task added (dispatched), total: \(self.tasks.count)")
+            }
+        }
         
         // Then sort in the background
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in

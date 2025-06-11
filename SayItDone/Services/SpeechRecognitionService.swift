@@ -44,10 +44,14 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // Add these properties to the class after the existing @Published variables
     private var silenceTimer: Timer?
-    private let silenceThreshold: TimeInterval = 1.2 // Reduced to 1.2 seconds for faster response
-    private let powerThreshold: Float = 0.007 // Slightly higher threshold for better sensitivity
+    private let silenceThreshold: TimeInterval = 0.5 // Reduced from 0.8 to 0.5 seconds for faster response
+    private let powerThreshold: Float = 0.003 // Reduced threshold for better sensitivity
     private var consecutiveSilenceFrames = 0
-    private let requiredSilenceFrames = 6 // Reduced for faster response
+    private let requiredSilenceFrames = 2 // Reduced from 4 to 2 for faster response
+    
+    // Add maximum recording timeout to prevent infinite recording
+    private var maxRecordingTimer: Timer?
+    private let maxRecordingDuration: TimeInterval = 10.0 // Maximum 10 seconds of recording
     
     // Add debouncing timer to prevent duplicate task creation
     private var processingDebounceTimer: Timer?
@@ -143,13 +147,18 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                     // Start recording if voice detected for enough consecutive frames
                     if self.consecutiveVoiceFrames >= self.requiredVoiceFrames && !self.isRecording && !self.isProcessingRecognition {
                         DispatchQueue.main.async {
-                            print("VAD detected voice - starting recording")
+                            print("VAD DEBUG: Voice detected - starting recording (avgPower: \(averagePower), threshold: \(adjustedThreshold))")
                             self.startRecording()
                         }
                     }
                 } else {
                     self.vadSilenceFrames += 1
                     self.consecutiveVoiceFrames = 0
+                    
+                    // Add debug logging for silence detection
+                    if self.vadSilenceFrames % 10 == 0 && self.isRecording {
+                        print("VAD DEBUG: Silence detected for \(self.vadSilenceFrames) frames while recording")
+                    }
                 }
             }
         }
@@ -195,6 +204,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // Start recording and recognizing speech
     func startRecording() {
+        print("RECORDING DEBUG: startRecording called")
+        
         // Reset previous recording session
         resetRecording()
         
@@ -207,16 +218,12 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         // Store empty string for transcribed text
         storedTranscribedText = ""
         
-        // Configure audio session with enhanced settings
+        // Configure audio session with optimized settings for speed
         let audioSession = AVAudioSession.sharedInstance()
         do {
-            // Use playAndRecord to enable higher quality audio capture
-            try audioSession.setCategory(.playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .allowBluetooth])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            
-            // Set preferred input to optimize for voice
-            try audioSession.setPreferredIOBufferDuration(0.005) // Smaller buffer for faster processing
-            try audioSession.setPreferredSampleRate(44100) // Higher sample rate for better quality
+            // Use simpler configuration for faster startup
+            try audioSession.setCategory(.record, mode: .measurement, options: [])
+            try audioSession.setActive(true)
         } catch {
             errorMessage = "Failed to set up audio session: \(error.localizedDescription)"
             return
@@ -310,21 +317,20 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                             self.transcribedText = ""
                             
                             // Call completion handler with the extracted task - IMMEDIATELY without any delay
+                            print("CRITICAL DEBUG: About to call onRecognitionComplete with title: '\(title)', dueDate: \(String(describing: dueDate))")
+                            print("CRITICAL DEBUG: onRecognitionComplete callback exists: \(self.onRecognitionComplete != nil)")
                             self.onRecognitionComplete?(title, dueDate)
+                            print("CRITICAL DEBUG: onRecognitionComplete callback called successfully")
                             
-                            // Reset processing state after a shorter delay to improve responsiveness
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                self.isProcessingRecognition = false
-                            }
+                            // Reset processing state immediately for faster response
+                            self.isProcessingRecognition = false
                         } else {
                             // If there's no text to process, still notify completion to hide UI
                             self.transcribedText = "" // Ensure text is cleared
                             self.onRecognitionComplete?("", nil)
                             
-                            // Reset processing state after a shorter delay
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                self.isProcessingRecognition = false
-                            }
+                            // Reset processing state immediately
+                            self.isProcessingRecognition = false
                         }
                     }
                 }
@@ -333,8 +339,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         
         // Configure audio recording with monitoring for silence - use smaller buffer size for better responsiveness
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 256, format: recordingFormat) { [weak self] buffer, _ in
-            // Use smaller buffer size (256 instead of 512) for improved responsiveness
+        inputNode.installTap(onBus: 0, bufferSize: 128, format: recordingFormat) { [weak self] buffer, _ in
+            // Use even smaller buffer size (128 instead of 256) for improved responsiveness
             guard let self = self else { return }
             
             // Add incoming audio to the recognition request
@@ -359,8 +365,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                 
                 let averagePower = sum / Float(samples)
                 
-                // Use both metrics for more accurate silence detection
-                if averagePower < self.powerThreshold && peakPower < self.powerThreshold * 3 {
+                // Use both metrics for more accurate silence detection - more aggressive thresholds
+                if averagePower < self.powerThreshold && peakPower < self.powerThreshold * 2 {
                     self.consecutiveSilenceFrames += 1
                     
                     // Start silence timer if we've detected enough consecutive silent frames
@@ -385,19 +391,29 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             }
         }
         
-        // Start audio engine with error handling
+        // Start audio engine with error handling - optimized for speed
         do {
-            // Prepare and start the audio engine
-            audioEngine.prepare()
+            // Start the audio engine directly without prepare() for faster startup
             try audioEngine.start()
+            
+            print("RECORDING DEBUG: Audio engine started immediately")
             
             // Update state on main thread
             DispatchQueue.main.async {
                 self.isRecording = true
                 self.isListening = true
                 self.errorMessage = nil
+                print("RECORDING DEBUG: Recording state updated - isRecording: true, isListening: true")
+                
+                // Start maximum recording timer to prevent infinite recording
+                self.maxRecordingTimer = Timer.scheduledTimer(withTimeInterval: self.maxRecordingDuration, repeats: false) { [weak self] _ in
+                    guard let self = self, self.isRecording else { return }
+                    print("RECORDING DEBUG: Maximum recording time reached - forcing stop")
+                    self.stopRecording()
+                }
             }
         } catch {
+            print("RECORDING DEBUG: Audio engine failed to start: \(error.localizedDescription)")
             errorMessage = "Failed to start audio engine: \(error.localizedDescription)"
             print("Audio engine error: \(error.localizedDescription)")
         }
@@ -408,9 +424,15 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // Stop recording
     func stopRecording() {
+        print("RECORDING DEBUG: stopRecording called")
+        
         // Invalidate silence timer
         silenceTimer?.invalidate()
         silenceTimer = nil
+        
+        // Invalidate maximum recording timer
+        maxRecordingTimer?.invalidate()
+        maxRecordingTimer = nil
         
         // Invalidate debounce timer
         processingDebounceTimer?.invalidate()
@@ -439,22 +461,24 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             DispatchQueue.main.async {
                 self.isRecording = false
                 
-                // Prevent duplicate processing
-                if !self.isProcessingRecognition {
-                    self.isProcessingRecognition = true
+                // Process any final transcription if we have text and it hasn't been processed
+                if !currentText.isEmpty && currentText != self.lastProcessedText {
+                    self.lastProcessedText = currentText
+                    let (title, dueDate) = self.processTaskText(currentText)
                     
-                    // Process any final transcription if we have text and it hasn't been processed
-                    if !currentText.isEmpty && currentText != self.lastProcessedText {
-                        self.lastProcessedText = currentText
-                        let (title, dueDate) = self.processTaskText(currentText)
-                        
-                        // Call completion handler with the extracted task
-                        self.onRecognitionComplete?(title, dueDate)
-                    } else {
-                        // If there's no text to process, still notify completion to hide UI
-                        self.onRecognitionComplete?("", nil)
-                    }
+                    // Call completion handler with the extracted task - IMMEDIATELY
+                    print("PROCESSING: Calling onRecognitionComplete with title: '\(title)'")
+                    self.onRecognitionComplete?(title, dueDate)
                     
+                    // Reset processing state immediately for faster response
+                    self.isProcessingRecognition = false
+                    print("PROCESSING: Reset isProcessingRecognition to false immediately")
+                } else {
+                    // If there's no text to process, still notify completion to hide UI
+                    print("PROCESSING: Calling onRecognitionComplete with empty text")
+                    self.onRecognitionComplete?("", nil)
+                    
+                    // Reset processing state immediately
                     self.isProcessingRecognition = false
                 }
             }
@@ -489,9 +513,36 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         }
     }
     
+    // CRITICAL FIX: Method to restart VAD after task processing
+    func restartVADIfNeeded() {
+        guard isVADEnabled else { return }
+        
+        print("VAD RESTART: Checking if VAD needs restart")
+        
+        // If VAD is not active but should be, restart it
+        if !isVADActive {
+            print("VAD RESTART: VAD not active, restarting immediately")
+            
+            // Reset all state first
+            resetRecording()
+            resetTranscription()
+            
+            // Start VAD immediately for faster response
+            self.startVoiceActivityDetection()
+            print("VAD RESTART: VAD restarted immediately")
+        } else {
+            print("VAD RESTART: VAD already active, no restart needed")
+        }
+    }
+    
     // Process task text with natural language processing for better date extraction
     func processTaskText(_ text: String) -> (String, Date?) {
-        guard !text.isEmpty else { return ("", nil) }
+        guard !text.isEmpty else { 
+            print("DEBUG: processTaskText received empty text")
+            return ("", nil) 
+        }
+        
+        print("DEBUG: processTaskText received: '\(text)'")
         
         var taskTitle = text
         var dueDate: Date?
@@ -513,15 +564,19 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         
         // First check for common patterns
         let lowercasedText = text.lowercased()
+        print("DEBUG: lowercased text: '\(lowercasedText)'")
         
         // ENHANCED: Check for "in X minutes" patterns first
         if let minutesFromNow = extractMinutesFromText(lowercasedText) {
+            print("DEBUG: Found minutes from now: \(minutesFromNow)")
             // Calculate exact time from now
             dueDate = Calendar.current.date(byAdding: .minute, value: minutesFromNow, to: Date())
             
             // Remove the time reference from the task title
             taskTitle = removeTimeReferencesFromText(text, lowercasedText)
             timeSpecified = true
+            print("DEBUG: Extracted task title after removing time: '\(taskTitle)'")
+            print("DEBUG: Due date set to: \(String(describing: dueDate))")
         }
         
         // Time extraction - Look for time patterns
@@ -731,6 +786,9 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             taskTitle = firstChar + restOfTitle
         }
         
+        print("DEBUG: Final task title: '\(taskTitle)'")
+        print("DEBUG: Final due date: \(String(describing: dueDate))")
+        
         return (taskTitle, dueDate)
     }
     
@@ -762,9 +820,11 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     private func startSilenceTimer() {
         // Only start timer if not already running
         if silenceTimer == nil {
+            print("SILENCE DEBUG: Starting silence timer (\(silenceThreshold) seconds)")
             silenceTimer = Timer.scheduledTimer(withTimeInterval: silenceThreshold, repeats: false) { [weak self] _ in
                 guard let self = self, self.isRecording else { return }
                 
+                print("SILENCE DEBUG: Silence timer triggered - stopping recording")
                 // Stop recording after silence period
                 self.stopRecording()
             }
@@ -772,6 +832,9 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     }
     
     private func resetSilenceTimer() {
+        if silenceTimer != nil {
+            print("SILENCE DEBUG: Resetting silence timer")
+        }
         silenceTimer?.invalidate()
         silenceTimer = nil
     }
@@ -835,6 +898,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // ENHANCED: Helper method to extract minutes from "in X minutes" patterns
     private func extractMinutesFromText(_ text: String) -> Int? {
+        print("DEBUG: extractMinutesFromText called with: '\(text)'")
+        
         // Patterns to match: "in 5 minutes", "in 10 min", "next 15 minutes", "in five minutes"
         let patterns = [
             #"in\s+(\d+)\s+minutes?"#,           // "in 5 minutes", "in 10 minute"
@@ -854,14 +919,17 @@ class SpeechRecognitionService: NSObject, ObservableObject {
         ]
         
         // Check numeric patterns first
-        for pattern in patterns {
+        for (index, pattern) in patterns.enumerated() {
+            print("DEBUG: Checking pattern \(index): \(pattern)")
             if let range = text.range(of: pattern, options: .regularExpression) {
                 let matchText = String(text[range])
+                print("DEBUG: Found match: '\(matchText)'")
                 // Extract the number from the match
                 let numberPattern = #"\d+"#
                 if let numberRange = matchText.range(of: numberPattern, options: .regularExpression) {
                     let numberText = String(matchText[numberRange])
                     if let minutes = Int(numberText) {
+                        print("DEBUG: Extracted minutes: \(minutes)")
                         return minutes
                     }
                 }
@@ -891,6 +959,8 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // ENHANCED: Helper method to remove time references from text
     private func removeTimeReferencesFromText(_ originalText: String, _ lowercaseText: String) -> String {
+        print("DEBUG: removeTimeReferencesFromText called with original: '\(originalText)', lowercase: '\(lowercaseText)'")
+        
         var cleanedText = originalText
         
         // Patterns to remove
@@ -906,19 +976,24 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             #"after\s+\w+\s+minutes?"#
         ]
         
-        for pattern in patternsToRemove {
+        for (index, pattern) in patternsToRemove.enumerated() {
+            print("DEBUG: Checking removal pattern \(index): \(pattern)")
             if let range = lowercaseText.range(of: pattern, options: .regularExpression) {
+                print("DEBUG: Found pattern to remove: '\(String(lowercaseText[range]))'")
                 // Find corresponding range in original text
                 let startIndex = originalText.index(originalText.startIndex, offsetBy: lowercaseText.distance(from: lowercaseText.startIndex, to: range.lowerBound))
                 let endIndex = originalText.index(originalText.startIndex, offsetBy: lowercaseText.distance(from: lowercaseText.startIndex, to: range.upperBound))
                 let originalRange = startIndex..<endIndex
                 
                 cleanedText = cleanedText.replacingCharacters(in: originalRange, with: "")
+                print("DEBUG: Text after removal: '\(cleanedText)'")
                 break // Remove only the first match to avoid index issues
             }
         }
         
-        return cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalText = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        print("DEBUG: Final cleaned text: '\(finalText)'")
+        return finalText
     }
 }
 
