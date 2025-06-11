@@ -153,42 +153,32 @@ struct TasksView: View {
                     DispatchQueue.main.async {
                         showingRecordingIndicator = false
                         
-                        // Use TaskManager's duplicate-prevention method
+                        // Use TaskManager's method to add task (always succeeds now)
                         let result = taskManager.addTaskIfNotDuplicate(title: finalText, dueDate: dueDate)
                         print("TASK: Addition result: success=\(result.success)")
                         
-                        if result.success {
-                            // Show success feedback
-                            showFeedback(message: "Task added!")
-                            provideHapticFeedback(.success)
-                            
-                            // Force UI refresh for immediate visibility
-                            forceUpdateTasks.toggle()
-                        } else {
-                            // Show duplicate feedback
-                            showFeedback(message: "Similar task already exists")
-                            provideHapticFeedback(.warning)
-                        }
+                        // Always show success feedback since we always add tasks
+                        showFeedback(message: "Task added!")
+                        provideHapticFeedback(.success)
                         
-                        // CRITICAL FIX: Restart VAD after processing to allow continuous task addition
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            processingTask = false
-                            
-                            // Use the new restart method for cleaner VAD management
-                            speechService.restartVADIfNeeded()
-                        }
+                        // Force UI refresh for immediate visibility
+                        forceUpdateTasks.toggle()
+                        
+                        // CRITICAL FIX: Restart VAD immediately after processing to allow continuous task addition
+                        processingTask = false
+                        
+                        // Force restart VAD to ensure it works for multiple tasks
+                        speechService.forceRestartVAD()
                     }
                 } else {
                     DispatchQueue.main.async {
                         showingRecordingIndicator = false
                         
                         // CRITICAL FIX: Also restart VAD for empty text case
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            processingTask = false
-                            
-                            // Use the new restart method for cleaner VAD management
-                            speechService.restartVADIfNeeded()
-                        }
+                        processingTask = false
+                        
+                        // Force restart VAD to ensure it works for multiple tasks
+                        speechService.forceRestartVAD()
                     }
                 }
             }
@@ -383,15 +373,13 @@ struct TasksView: View {
                             self.processingTask = false
                         }
                         
-                        // Start VAD service after a short delay to ensure cleanup
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            // Start VAD service
-                            self.speechService.isVADEnabled = true
-                            self.speechService.startVoiceActivityDetection()
-                            
-                            // Show feedback
-                            self.showFeedback(message: "Auto-listening active")
-                        }
+                        // Start VAD service immediately for faster response
+                        // Start VAD service
+                        self.speechService.isVADEnabled = true
+                        self.speechService.startVoiceActivityDetection()
+                        
+                        // Show feedback
+                        self.showFeedback(message: "Auto-listening active")
                     } else {
                         // Show permission error
                         self.permissionAlertMessage = "Speech recognition permission is required for auto-listening."

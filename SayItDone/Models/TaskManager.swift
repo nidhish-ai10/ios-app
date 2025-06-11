@@ -278,36 +278,11 @@ class TaskManager: ObservableObject {
         }
     }
     
-    // Enhanced duplicate detection method - less strict to allow similar tasks
-    func hasDuplicateTask(title: String) -> Bool {
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        
-        // Only consider it a duplicate if it's exactly the same (very strict matching)
-        return tasks.contains { existingTask in
-            let existingTitle = existingTask.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            // Only block if titles are exactly identical
-            return existingTitle == normalizedTitle
-        }
-    }
-    
-    // More lenient task addition - allows multiple similar tasks
+    // Allow all tasks to be added - no duplicate checking
     func addTaskIfNotDuplicate(title: String, dueDate: Date?) -> (success: Bool, taskID: UUID?) {
         print("TaskManager: Adding task '\(title)'")
         
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        
-        // Only prevent if it's an exact match within the last 1 second (to prevent immediate duplicates only)
-        let recentDuplicates = tasks.filter { existingTask in
-            let existingTitle = existingTask.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            let timeDifference = Date().timeIntervalSince(existingTask.createdAt)
-            return existingTitle == normalizedTitle && timeDifference < 1.0
-        }
-        
-        if !recentDuplicates.isEmpty {
-            print("TaskManager: Recent duplicate detected, skipping")
-            return (false, nil)
-        }
-        
+        // Always add the task - no duplicate checking
         // Generate a new ID more efficiently
         lastTaskID = UUID()
         
@@ -338,7 +313,7 @@ class TaskManager: ObservableObject {
             self.sortTasksBackground()
         }
         
-        // Return success and the ID immediately for animations
+        // Always return success
         return (true, lastTaskID)
     }
 } 

@@ -144,6 +144,11 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                     self.consecutiveVoiceFrames += 1
                     self.vadSilenceFrames = 0
                     
+                    // Add debug logging for voice detection
+                    if self.consecutiveVoiceFrames % 5 == 0 {
+                        print("VAD DEBUG: Voice detected - frames: \(self.consecutiveVoiceFrames), avgPower: \(averagePower), threshold: \(adjustedThreshold)")
+                    }
+                    
                     // Start recording if voice detected for enough consecutive frames
                     if self.consecutiveVoiceFrames >= self.requiredVoiceFrames && !self.isRecording && !self.isProcessingRecognition {
                         DispatchQueue.main.async {
@@ -515,11 +520,9 @@ class SpeechRecognitionService: NSObject, ObservableObject {
     
     // CRITICAL FIX: Method to restart VAD after task processing
     func restartVADIfNeeded() {
-        guard isVADEnabled else { return }
-        
         print("VAD RESTART: Checking if VAD needs restart")
         
-        // If VAD is not active but should be, restart it
+        // Always restart VAD if it's not active, regardless of isVADEnabled flag
         if !isVADActive {
             print("VAD RESTART: VAD not active, restarting immediately")
             
@@ -527,12 +530,33 @@ class SpeechRecognitionService: NSObject, ObservableObject {
             resetRecording()
             resetTranscription()
             
-            // Start VAD immediately for faster response
+            // Enable VAD and start it immediately for faster response
+            isVADEnabled = true
             self.startVoiceActivityDetection()
             print("VAD RESTART: VAD restarted immediately")
         } else {
             print("VAD RESTART: VAD already active, no restart needed")
         }
+    }
+    
+    // FORCE restart VAD - ensures it always restarts for multiple tasks
+    func forceRestartVAD() {
+        print("VAD FORCE RESTART: Forcing VAD restart for multiple tasks")
+        
+        // Stop current VAD if active
+        if isVADActive {
+            stopVoiceActivityDetection()
+        }
+        
+        // Reset all state
+        resetRecording()
+        resetTranscription()
+        
+        // Force enable and start VAD
+        isVADEnabled = true
+        startVoiceActivityDetection()
+        
+        print("VAD FORCE RESTART: VAD force restarted successfully")
     }
     
     // Process task text with natural language processing for better date extraction
