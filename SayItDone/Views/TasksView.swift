@@ -76,12 +76,6 @@ struct TasksView: View {
                     }
                 }
                 
-                // Debug counter
-                Text("Tasks: \(taskManager.tasks.count)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .padding(.top, 4)
-                
                 // Add space at the bottom to make room for the floating recording indicator
                 Spacer()
                     .frame(height: 35)
