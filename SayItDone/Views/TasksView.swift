@@ -139,64 +139,64 @@ struct TasksView: View {
             
             // Set up the speech service with improved feedback
             speechService.onRecognitionComplete = { text, dueDate in
+                // Update UI immediately - CRITICAL FIX
+                withAnimation(.easeOut(duration: 0.1)) {
+                    showingRecordingIndicator = false
+                }
+                
                 // Only process non-empty tasks
                 if !text.isEmpty {
-                    // Add the task immediately on main thread
-                    let newTaskId = self.taskManager.addTask(title: text, dueDate: dueDate)
+                    // CRITICAL FIX: Create and add task immediately
+                    let newTask = Task(id: UUID(), title: text, dueDate: dueDate)
                     
-                    // Store the ID for animations and force immediate UI update
                     DispatchQueue.main.async {
-                        // Store the ID for animations
-                        self.newTaskID = newTaskId
+                        // Add directly to the task manager's array for immediate display
+                        taskManager.addTaskDirectly(newTask)
                         
-                        // Hide recording indicator only after task is added
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            self.showingRecordingIndicator = false
-                            self.processingTask = true
-                        }
+                        // Store ID for animation
+                        newTaskID = newTask.id
                         
-                        // Force layout update
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            self.showingNewTaskAnimation = true
-                        }
+                        // Ensure task is visible immediately
+                        showingNewTaskAnimation = true
                         
-                        // Show appropriate feedback based on task scheduling
-                        if let dueDate = dueDate {
-                            if Calendar.current.isDateInToday(dueDate) {
-                                self.showFeedback(message: "Task scheduled for today")
-                            } else if Calendar.current.isDateInTomorrow(dueDate) {
-                                self.showFeedback(message: "Task scheduled for tomorrow")
-                            } else if self.isDateInCurrentWeek(dueDate) {
-                                let formatter = DateFormatter()
-                                formatter.dateFormat = "EEEE"
-                                let dayName = formatter.string(from: dueDate)
-                                self.showFeedback(message: "Task scheduled for \(dayName)")
+                        // Show feedback with very short animation
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if let dueDate = dueDate {
+                                if Calendar.current.isDateInToday(dueDate) {
+                                    showFeedback(message: "Task scheduled for today")
+                                } else if Calendar.current.isDateInTomorrow(dueDate) {
+                                    showFeedback(message: "Task scheduled for tomorrow")
+                                } else if isDateInCurrentWeek(dueDate) {
+                                    let formatter = DateFormatter()
+                                    formatter.dateFormat = "EEEE"
+                                    let dayName = formatter.string(from: dueDate)
+                                    showFeedback(message: "Task scheduled for \(dayName)")
+                                } else {
+                                    let formatter = DateFormatter()
+                                    formatter.dateStyle = .medium
+                                    let dateString = formatter.string(from: dueDate)
+                                    showFeedback(message: "Task scheduled for \(dateString)")
+                                }
                             } else {
-                                let formatter = DateFormatter()
-                                formatter.dateStyle = .medium
-                                let dateString = formatter.string(from: dueDate)
-                                self.showFeedback(message: "Task scheduled for \(dateString)")
+                                showFeedback(message: "Task added")
                             }
-                        } else {
-                            self.showFeedback(message: "Task added")
                         }
                         
-                        // Provide haptic feedback on task creation
-                        self.provideHapticFeedback(.success)
+                        // Provide haptic feedback
+                        provideHapticFeedback(.success)
                         
-                        // Reset animation after delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        // Reset animation state after delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                             withAnimation {
-                                self.showingNewTaskAnimation = false
-                                self.newTaskID = nil
-                                self.processingTask = false
+                                showingNewTaskAnimation = false
+                                newTaskID = nil
                             }
                         }
                     }
                 } else {
-                    // No task to add, just hide the recording indicator
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        self.showingRecordingIndicator = false
+                    // No task to add, ensure recording indicator is hidden
+                    withAnimation(.easeOut(duration: 0.1)) {
+                        showingRecordingIndicator = false
                     }
                 }
             }

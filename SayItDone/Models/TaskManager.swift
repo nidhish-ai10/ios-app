@@ -256,4 +256,18 @@ class TaskManager: ObservableObject {
         sortMethod = method
         sortTasks()
     }
+    
+    // Direct method for immediate task display - CRITICAL FIX
+    func addTaskDirectly(_ task: Task) {
+        // Add task directly to the array without any async delays
+        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+            tasks.insert(task, at: 0) // Add at the top for immediate visibility
+        }
+        
+        // Sort in background after task is already visible
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            self.sortTasksBackground()
+        }
+    }
 } 

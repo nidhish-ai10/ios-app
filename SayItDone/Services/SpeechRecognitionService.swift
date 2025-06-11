@@ -305,11 +305,11 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                             // Clear the transcribed text after processing
                             self.transcribedText = ""
                             
-                            // Call completion handler with the extracted task - synchronous to improve task display performance
+                            // Call completion handler with the extracted task - IMMEDIATELY without any delay
                             self.onRecognitionComplete?(title, dueDate)
                             
                             // Reset processing state after a shorter delay to improve responsiveness
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                 self.isProcessingCompletion = false
                             }
                         } else {
@@ -318,7 +318,7 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                             self.onRecognitionComplete?("", nil)
                             
                             // Reset processing state after a shorter delay
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 self.isProcessingCompletion = false
                             }
                         }
