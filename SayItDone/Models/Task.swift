@@ -106,15 +106,10 @@ struct Task: Identifiable {
             return ""
         }
         
-        let formatter = DateFormatter()
         let calendar = Calendar.current
         
         // Check if time was specified (not midnight)
         let hasTime = !calendar.isDate(dueDate, equalTo: calendar.startOfDay(for: dueDate), toGranularity: .hour)
-        
-        // Get day of week
-        let weekday = calendar.component(.weekday, from: dueDate)
-        let weekdaySymbol = calendar.weekdaySymbols[weekday-1]
         
         // Get actual date formatting (month and day)
         let dateFormatter = DateFormatter()
@@ -126,9 +121,9 @@ struct Task: Identifiable {
         timeFormatter.dateFormat = "h:mm a"
         let timeString = timeFormatter.string(from: dueDate)
         
-        // Always show the actual date - no "Today" or "Tomorrow" text
+        // Always show the actual date - with inline time format
         if hasTime {
-            return "\(actualDateString) at \(timeString)"
+            return "\(actualDateString), \(timeString)"
         } else {
             return actualDateString
         }

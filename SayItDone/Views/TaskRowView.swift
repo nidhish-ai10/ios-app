@@ -69,30 +69,30 @@ struct TaskRowView: View {
                             .font(.system(size: 14))
                             .foregroundColor(task.isOverdue ? .red : .gray)
                         
-                        // Due date with improved formatting - make it even more prominent
+                        // Due date with improved formatting - more compact and elegant
                         Text(task.dueDateDisplay)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(task.isOverdue ? .red : .primary)
                         
                         // Check if time was specified (not midnight)
                         let calendar = Calendar.current
                         if let dueDate = task.dueDate, !calendar.isDate(dueDate, equalTo: calendar.startOfDay(for: dueDate), toGranularity: .hour) {
-                            // Add clock icon when time is specified
-                            Image(systemName: "clock")
-                                .font(.system(size: 14))
-                                .foregroundColor(task.isOverdue ? .red : .gray)
-                                .padding(.leading, 2)
+                            // Clock icon is no longer needed as time is integrated into the dueDateDisplay
                         }
                         
-                        // Time remaining indicator
+                        Spacer()
+                        
+                        // Time remaining indicator - moved to the right for better balance
                         if !task.timeRemaining.isEmpty {
-                            Text("•")
-                                .font(.system(size: 12))
-                                .foregroundColor(.gray)
-                            
                             Text(task.timeRemaining)
                                 .font(.system(size: 12, weight: task.isOverdue ? .medium : .regular))
                                 .foregroundColor(task.isOverdue ? .red : .gray)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.gray.opacity(0.1))
+                                )
                         }
                     }
                     .padding(.top, 4)
