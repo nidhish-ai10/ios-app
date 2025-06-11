@@ -138,9 +138,7 @@ struct TasksView: View {
             }
             
             // Set up the speech service with improved feedback
-            speechService.onRecognitionComplete = { [weak self] text, dueDate in
-                guard let self = self else { return }
-                
+            speechService.onRecognitionComplete = { text, dueDate in
                 // Update UI immediately to indicate processing
                 withAnimation(.easeOut(duration: 0.2)) {
                     self.showingRecordingIndicator = false
