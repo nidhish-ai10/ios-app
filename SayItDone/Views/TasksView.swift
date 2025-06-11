@@ -1,0 +1,733 @@
+//
+//  TasksView.swift
+//  SayItDone
+//
+//  Created by Bairineni Nidhish rao on 6/2/25.
+//
+
+import SwiftUI
+import Speech
+import AVFAudio
+
+struct TasksView: View {
+    @StateObject private var taskManager = TaskManager()
+    @StateObject private var speechService = SpeechRecognitionService()
+    
+    @State private var isRecording = false
+    @State private var showingPermissionAlert = false
+    @State private var permissionAlertMessage = ""
+    @State private var showingRecordingIndicator = false
+    @State private var listenPulse = false
+    @State private var feedbackMessage = ""
+    @State private var showingFeedback = false
+    @State private var showingNewTaskAnimation = false
+    @State private var newTaskID: UUID?
+    @State private var showingUndoButton = false
+    @State private var showingVerificationDialog = false
+    
+    // Voice Activity Detection
+    @AppStorage("isVADEnabled") private var isVADEnabled = false
+    
+    // User preferences
+    @AppStorage("isHapticsEnabled") private var isHapticsEnabled = true
+    
+    // Color for our app
+    let pastelBlueDarker = Color(red: 150/255, green: 190/255, blue: 255/255)
+    
+    var body: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                // Tasks section
+                ScrollView {
+                    if taskManager.tasks.isEmpty {
+                        // Empty space when no tasks
+                        Spacer()
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: UIScreen.main.bounds.height - 200)
+                    } else {
+                        // Task list
+                        LazyVStack(spacing: 12) {
+                            ForEach(taskManager.tasks) { task in
+                                TaskRowView(task: task) {
+                                    // Delete task action
+                                    provideHapticFeedback(.medium)
+                                    taskManager.removeTask(with: task.id)
+                                    
+                                    // Show undo button
+                                    showUndoOption()
+                                }
+                                .id(task.id)
+                                .background(newTaskID == task.id ? Color.yellow.opacity(0.2) : Color.clear)
+                                .cornerRadius(8)
+                                .scaleEffect(newTaskID == task.id && showingNewTaskAnimation ? 1.03 : 1.0)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingNewTaskAnimation)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 20)
+                    }
+                }
+                
+                // Add space at the bottom to make room for the floating recording indicator
+                Spacer()
+                    .frame(height: 35)
+            }
+            
+            // Position the recording indicator near the bottom above where the mic button would be
+            VStack {
+                Spacer()
+                
+                // Recording indicator with live transcription - enhanced for better visibility
+                if showingRecordingIndicator {
+                    VStack(spacing: 10) {
+                        // Status label - show whether using VAD or manual recording
+                        if speechService.isVADActive && isVADEnabled {
+                            Text("Auto-listening active")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 4)
+                        }
+                        
+                        // Waveform animation (audio visualization) - more active when listening
+                        HStack(spacing: 3) {
+                            ForEach(0..<5) { index in
+                                RoundedRectangle(cornerRadius: 1)
+                                    .fill(pastelBlueDarker)
+                                    .frame(width: 3, height: speechService.isListening ? 20 : 10)
+                                    .modifier(WaveformAnimationModifier(
+                                        isActive: speechService.isListening,
+                                        delay: Double(index) * 0.15
+                                    ))
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        
+                        // Transcription text with improved visibility and status indicator
+                        Text(speechService.transcribedText.isEmpty ? 
+                             (speechService.isListening ? "Listening..." : "Say something...") : 
+                             speechService.transcribedText)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.center)
+                            .frame(minHeight: 60)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal)
+                            .animation(.easeInOut(duration: 0.2), value: speechService.transcribedText)
+                            .animation(.easeInOut(duration: 0.2), value: speechService.isListening)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(UIColor.secondarySystemBackground))
+                            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 90) // Position it above where the mic button will be
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+        }
+        .onAppear {
+            if speechService.isListening {
+                listenPulse = true
+            }
+            
+            // Set up the speech service with improved feedback
+            speechService.onRecognitionComplete = { taskTitle, dueDate in
+                // Hide recording indicator
+                withAnimation(.easeOut(duration: 0.3)) {
+                    self.showingRecordingIndicator = false
+                }
+                
+                // Only process non-empty tasks
+                if !taskTitle.isEmpty {
+                    // Add the task with animation
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        let newTask = taskManager.addTask(title: taskTitle, dueDate: dueDate)
+                        
+                        // Store the new task ID for highlighting
+                        self.newTaskID = newTask
+                        
+                        // Show highlighting animation for the new task
+                        self.showingNewTaskAnimation = true
+                        
+                        // Show feedback with date if available
+                        if let date = dueDate {
+                            let calendar = Calendar.current
+                            let weekday = calendar.component(.weekday, from: date)
+                            let weekdaySymbol = calendar.weekdaySymbols[weekday-1]
+                            
+                            // Check if time was specified (not midnight)
+                            let hasTime = !calendar.isDate(date, equalTo: calendar.startOfDay(for: date), toGranularity: .hour)
+                            
+                            let formatter = DateFormatter()
+                            formatter.dateFormat = "MMMM d, yyyy"
+                            let dateString = formatter.string(from: date)
+                            
+                            // Get actual date for display
+                            let actualDateFormatter = DateFormatter()
+                            actualDateFormatter.dateFormat = "MMMM d"
+                            let actualDateString = actualDateFormatter.string(from: date)
+                            
+                            // Create a task object temporarily to use its heading property
+                            let tempTask = Task(title: taskTitle, dueDate: dueDate)
+                            let taskHeading = tempTask.heading
+                            
+                            // Always use actual date for clarity
+                            let scheduledDateMessage = actualDateString
+                            
+                            // Add time to feedback if specified
+                            if hasTime {
+                                let timeFormatter = DateFormatter()
+                                timeFormatter.dateFormat = "h:mm a"
+                                let timeString = timeFormatter.string(from: date)
+                                self.showFeedback(message: "\"\(taskHeading)\" scheduled for \(scheduledDateMessage) at \(timeString)")
+                            } else {
+                                self.showFeedback(message: "\"\(taskHeading)\" scheduled for \(scheduledDateMessage)")
+                            }
+                        } else {
+                            // Show confirmation for tasks without dates
+                            // Create a task object temporarily to use its heading property
+                            let tempTask = Task(title: taskTitle, dueDate: nil)
+                            let taskHeading = tempTask.heading
+                            self.showFeedback(message: "\"\(taskHeading)\" added")
+                        }
+                        
+                        // Reset highlighting after a delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            withAnimation {
+                                self.showingNewTaskAnimation = false
+                                self.newTaskID = nil
+                            }
+                        }
+                    }
+                    
+                    // Provide haptic feedback on task creation
+                    self.provideHapticFeedback(.success)
+                }
+            }
+            
+            // Always enable VAD since we removed the microphone button
+            if !isVADEnabled {
+                isVADEnabled = true
+            }
+            
+            // Start VAD
+            initializeVAD()
+            
+            // Set up notification observers
+            setupNotificationObservers()
+        }
+        .onChange(of: speechService.isListening) { newValue in
+            listenPulse = newValue
+            
+            // Always show recording indicator when listening
+            withAnimation(.easeIn(duration: 0.2)) {
+                showingRecordingIndicator = newValue
+            }
+            
+            // If we stop listening, ensure the recording indicator remains visible until processing completes
+            if !newValue && showingRecordingIndicator {
+                // Let the recording indicator stay visible for final transcription display
+                // It will be hidden by onRecognitionComplete
+            }
+        }
+        .onChange(of: speechService.transcribedText) { newValue in
+            // Handle transcription text changes more efficiently
+            let oldValue = speechService.transcribedText
+            
+            // Always show recording indicator when there's text
+            if !newValue.isEmpty {
+                // Show recording indicator when we have text
+                withAnimation(.easeIn(duration: 0.2)) {
+                    showingRecordingIndicator = true
+                }
+            }
+        }
+        .onChange(of: isVADEnabled) { newValue in
+            // Handle changes to VAD toggle
+            if newValue {
+                startVAD()
+            } else {
+                stopVAD()
+            }
+        }
+        .alert(isPresented: $showingPermissionAlert) {
+            Alert(
+                title: Text("Permission Required"),
+                message: Text(permissionAlertMessage),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+        .overlay(
+            // Undo button overlay
+            VStack {
+                Spacer()
+                
+                if showingUndoButton {
+                    Button(action: {
+                        // Undo the last deletion
+                        if taskManager.undoLastDeletion() {
+                            // Show feedback
+                            showFeedback(message: "Task restored")
+                            
+                            // Hide the undo button
+                            withAnimation {
+                                showingUndoButton = false
+                            }
+                            
+                            // Provide haptic feedback
+                            provideHapticFeedback(.medium)
+                        }
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.uturn.backward")
+                                .font(.system(size: 14))
+                            Text("Undo")
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule()
+                                .fill(Color(UIColor.systemBackground))
+                                .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
+                        )
+                    }
+                    .padding(.bottom, 90)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+        )
+        .overlay(
+            // Feedback message overlay
+            Group {
+                if showingFeedback {
+                    VStack {
+                        Spacer()
+                        Text(feedbackMessage)
+                            .font(.subheadline)
+                            .padding()
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                            )
+                            .padding(.bottom, 100)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingFeedback)
+                    }
+                }
+            }
+        )
+        .alert(isPresented: $showingVerificationDialog) {
+            Alert(
+                title: Text("Confirm Action"),
+                message: Text("Are you sure you want to proceed with this action? This cannot be undone."),
+                primaryButton: .destructive(Text("Proceed")) {
+                    taskManager.executePendingOperation()
+                },
+                secondaryButton: .cancel {
+                    taskManager.cancelPendingOperation()
+                }
+            )
+        }
+        .onChange(of: taskManager.isVerificationRequired) { newValue in
+            if newValue {
+                showingVerificationDialog = true
+            }
+        }
+        .onDisappear {
+            // Clean up observers when view disappears
+            removeNotificationObservers()
+            
+            // Stop VAD if active
+            if speechService.isVADActive {
+                speechService.stopVoiceActivityDetection()
+            }
+        }
+    }
+    
+    // MARK: - Voice Activity Detection Methods
+    
+    private func initializeVAD() {
+        // Check if VAD is enabled and initialize it
+        if isVADEnabled {
+            startVAD()
+        } else {
+            stopVAD()
+        }
+    }
+    
+    private func toggleVAD() {
+        // Toggle the VAD setting
+        isVADEnabled.toggle()
+        
+        // Provide haptic feedback
+        provideHapticFeedback(.medium)
+        
+        // Show feedback message
+        showFeedback(message: isVADEnabled ? "Auto-listening turned on" : "Auto-listening turned off")
+        
+        // Start or stop VAD based on new state
+        if isVADEnabled {
+            // Ensure any in-progress recognition is stopped before starting VAD
+            speechService.resetRecording()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.startVAD()
+            }
+        } else {
+            stopVAD()
+        }
+    }
+    
+    private func startVAD() {
+        // First check permissions
+        checkMicrophonePermission { micGranted in
+            if micGranted {
+                checkSpeechRecognitionPermission { speechGranted in
+                    if speechGranted {
+                        // Reset service state first
+                        self.speechService.resetRecording()
+                        // Reset transcription to ensure a clean slate
+                        self.speechService.resetTranscription()
+                        
+                        // Start VAD service after a short delay to ensure cleanup
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            // Start VAD service
+                            self.speechService.isVADEnabled = true
+                            self.speechService.startVoiceActivityDetection()
+                            
+                            // Show feedback
+                            self.showFeedback(message: "Auto-listening active")
+                        }
+                    } else {
+                        // Show permission error
+                        self.permissionAlertMessage = "Speech recognition permission is required for auto-listening."
+                        self.showingPermissionAlert = true
+                        
+                        // Revert the toggle
+                        DispatchQueue.main.async {
+                            self.isVADEnabled = false
+                        }
+                    }
+                }
+            } else {
+                // Show permission error
+                self.permissionAlertMessage = "Microphone permission is required for auto-listening."
+                self.showingPermissionAlert = true
+                
+                // Revert the toggle
+                DispatchQueue.main.async {
+                    self.isVADEnabled = false
+                }
+            }
+        }
+    }
+    
+    private func stopVAD() {
+        // Stop VAD service
+        speechService.isVADEnabled = false
+        speechService.stopVoiceActivityDetection()
+        
+        // Reset the speech service
+        speechService.resetRecording()
+        // Reset transcription to ensure a clean slate
+        speechService.resetTranscription()
+        
+        // Ensure recording indicator is hidden
+        withAnimation(.easeOut(duration: 0.3)) {
+            showingRecordingIndicator = false
+            isRecording = false
+        }
+    }
+    
+    // MARK: - Haptic Feedback
+    
+    // Function to provide haptic feedback when enabled
+    private func provideHapticFeedback(_ feedbackType: HapticFeedbackType) {
+        guard isHapticsEnabled else { return }
+        
+        switch feedbackType {
+        case .light:
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+        case .medium:
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+        case .heavy:
+            let generator = UIImpactFeedbackGenerator(style: .heavy)
+            generator.impactOccurred()
+        case .success:
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+        case .error:
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+        case .warning:
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.warning)
+        }
+    }
+    
+    // Enum to define haptic feedback types
+    private enum HapticFeedbackType {
+        case light, medium, heavy
+        case success, warning, error
+    }
+    
+    // Handle microphone button tap
+    private func handleMicrophoneTap() {
+        // Provide haptic feedback when tapping microphone
+        provideHapticFeedback(.medium)
+        
+        if isRecording {
+            // Stop recording
+            speechService.stopRecording()
+            
+            // Update UI state - but don't hide recording indicator yet
+            // Let the onRecognitionComplete callback handle hiding it
+            withAnimation {
+                isRecording = false
+            }
+        } else {
+            // Check microphone permission
+            checkMicrophonePermission { granted in
+                if granted {
+                    // Check speech recognition permission
+                    checkSpeechRecognitionPermission { granted in
+                        if granted {
+                            // If VAD is active, stop it to avoid conflicts
+                            if self.speechService.isVADActive {
+                                self.speechService.stopVoiceActivityDetection()
+                            }
+                            
+                            // Reset any previous state
+                            self.speechService.resetRecording()
+                            self.speechService.resetTranscription()
+                            
+                            // Start recording
+                            withAnimation {
+                                isRecording = true
+                                showingRecordingIndicator = true
+                            }
+                            speechService.startRecording()
+                        } else {
+                            // Show permission alert
+                            provideHapticFeedback(.error)
+                            permissionAlertMessage = "Please allow speech recognition in Settings to use this feature."
+                            showingPermissionAlert = true
+                        }
+                    }
+                } else {
+                    // Show permission alert
+                    provideHapticFeedback(.error)
+                    permissionAlertMessage = "Please allow microphone access in Settings to use this feature."
+                    showingPermissionAlert = true
+                }
+            }
+        }
+    }
+    
+    // Check microphone permission
+    private func checkMicrophonePermission(completion: @escaping (Bool) -> Void) {
+        if #available(iOS 17.0, *) {
+            // Use the new iOS 17+ API
+            switch AVAudioApplication.shared.recordPermission {
+            case .granted:
+                completion(true)
+            case .denied:
+                completion(false)
+            case .undetermined:
+                AVAudioApplication.requestRecordPermission { granted in
+                    DispatchQueue.main.async {
+                        completion(granted)
+                    }
+                }
+            @unknown default:
+                completion(false)
+            }
+        } else {
+            // Fallback for older iOS versions
+            switch AVAudioSession.sharedInstance().recordPermission {
+            case .granted:
+                completion(true)
+            case .denied:
+                completion(false)
+            case .undetermined:
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    DispatchQueue.main.async {
+                        completion(granted)
+                    }
+                }
+            @unknown default:
+                completion(false)
+            }
+        }
+    }
+    
+    // Check speech recognition permission
+    private func checkSpeechRecognitionPermission(completion: @escaping (Bool) -> Void) {
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                completion(status == .authorized)
+            }
+        }
+    }
+    
+    // Update the processTranscription method to be more robust
+    private func processTranscription(_ text: String) {
+        // Only process if we have text and it hasn't been processed already
+        if !text.isEmpty {
+            // Use the speech service to process the text
+            let (taskTitle, dueDate) = speechService.processTaskText(text)
+            
+            if !taskTitle.isEmpty {
+                // Add the task with animation
+                withAnimation {
+                    taskManager.addTask(title: taskTitle, dueDate: dueDate)
+                }
+                
+                // Provide haptic feedback on task creation
+                provideHapticFeedback(.success)
+                
+                // Reset transcription to allow for new tasks
+                speechService.resetTranscription()
+            }
+        }
+    }
+    
+    // MARK: - Feedback methods
+    
+    // Shows a temporary feedback message
+    private func showFeedback(message: String) {
+        feedbackMessage = message
+        showingFeedback = true
+        
+        // Hide after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            withAnimation {
+                self.showingFeedback = false
+            }
+        }
+    }
+    
+    // MARK: - Notification Observers
+    
+    private func setupNotificationObservers() {
+        // Observe VAD sensitivity changes from SettingsView
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("VADSensitivityChanged"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let userInfo = notification.userInfo,
+               let sensitivity = userInfo["sensitivity"] as? Double {
+                // Update the sensitivity in the speech service
+                self.speechService.updateVADSensitivity(sensitivity)
+                
+                // Show feedback about the change
+                self.showFeedback(message: "Auto-listening sensitivity updated")
+            }
+        }
+        
+        // Observe permission check requests when VAD is enabled
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("CheckVADPermissions"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            // Check permissions for VAD
+            self.startVAD()
+        }
+        
+        // Observe toggle VAD requests from MainView microphone button
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("ToggleVAD"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            // Toggle VAD state
+            self.toggleVAD()
+        }
+    }
+    
+    // Remove notification observers when the view disappears
+    private func removeNotificationObservers() {
+        NotificationCenter.default.removeObserver(
+            self,
+            name: Notification.Name("VADSensitivityChanged"),
+            object: nil
+        )
+        
+        NotificationCenter.default.removeObserver(
+            self,
+            name: Notification.Name("CheckVADPermissions"),
+            object: nil
+        )
+        
+        NotificationCenter.default.removeObserver(
+            self,
+            name: Notification.Name("ToggleVAD"),
+            object: nil
+        )
+    }
+    
+    // MARK: - Helper methods
+    
+    // Shows a temporary undo option
+    private func showUndoOption() {
+        withAnimation(.spring()) {
+            showingUndoButton = true
+        }
+        
+        // Auto-hide after 5 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            withAnimation {
+                self.showingUndoButton = false
+            }
+        }
+    }
+    
+    // Helper to check if date is within current week
+    private func isDateWithinWeek(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let sevenDaysLater = calendar.date(byAdding: .day, value: 7, to: today)!
+        return date <= sevenDaysLater && date >= today
+    }
+}
+
+// Waveform animation modifier
+struct WaveformAnimationModifier: ViewModifier {
+    @State private var isAnimating = false
+    let isActive: Bool
+    let delay: Double
+    
+    init(isActive: Bool = true, delay: Double = 0.0) {
+        self.isActive = isActive
+        self.delay = delay
+    }
+    
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(x: 1, y: isAnimating ? 
+                        (isActive ? 0.5 + CGFloat.random(in: 0.5...1.0) : 0.7) : 
+                        0.3)
+            .animation(
+                Animation.easeInOut(duration: isActive ? 0.5 : 1.0)
+                    .repeatForever(autoreverses: true)
+                    .delay(delay),
+                value: isAnimating
+            )
+            .onAppear {
+                isAnimating = true
+            }
+    }
+}
+
+#Preview {
+    TasksView()
+} 
