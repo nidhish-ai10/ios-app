@@ -46,10 +46,27 @@ struct TasksView: View {
                 // Tasks section
                 ScrollView {
                     if taskManager.tasks.isEmpty {
-                        // Empty space when no tasks
-                        Spacer()
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: UIScreen.main.bounds.height - 200)
+                        // Empty state when no tasks
+                        VStack(spacing: 20) {
+                            Spacer()
+                                .frame(height: 60)
+                            
+                            Image(systemName: "checkmark.circle")
+                                .font(.system(size: 70))
+                                .foregroundColor(.gray.opacity(0.5))
+                            
+                            Text("No tasks yet")
+                                .font(.title2)
+                                .foregroundColor(.gray)
+                            
+                            Text("Your tasks will appear here")
+                                .font(.subheadline)
+                                .foregroundColor(.gray.opacity(0.8))
+                            
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: UIScreen.main.bounds.height - 200)
                     } else {
                         // Task list
                         LazyVStack(spacing: 12) {
@@ -74,6 +91,12 @@ struct TasksView: View {
                         .padding(.top, 20)
                     }
                 }
+                
+                // Debug counter
+                Text("Tasks: \(taskManager.tasks.count)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(.top, 4)
                 
                 // Add space at the bottom to make room for the floating recording indicator
                 Spacer()
@@ -143,51 +166,46 @@ struct TasksView: View {
             
             // Set up the speech service with improved feedback
             speechService.onRecognitionComplete = { finalText, dueDate in
+                print("CRITICAL DEBUG: Recognition complete with text: \(finalText), dueDate: \(String(describing: dueDate))")
+                
                 // Only process non-empty tasks
                 if !finalText.isEmpty {
-                    showingRecordingIndicator = false
-                    
-                    // CRITICAL FIX: Create task immediately without delay
-                    let newTask = Task(id: UUID(), title: finalText, dueDate: dueDate)
-                    withAnimation(.spring()) {
+                    // IMPORTANT: Force UI updates to happen on main thread
+                    DispatchQueue.main.async {
+                        print("CRITICAL DEBUG: Creating task and updating UI")
+                        showingRecordingIndicator = false
+                        
+                        // CRITICAL FIX: Create task immediately without delay
+                        let newTask = Task(id: UUID(), title: finalText, dueDate: dueDate)
+                        print("CRITICAL DEBUG: Created task with ID: \(newTask.id)")
+                        
+                        // EMERGENCY FIX: Directly modify the tasks array
                         taskManager.tasks.insert(newTask, at: 0)
-                        // Force sort to run immediately
-                        taskManager.sortTasks()
-                    }
-                    
-                    // Show feedback
-                    if let dueDate = newTask.dueDate {
-                        if Calendar.current.isDateInToday(dueDate) {
-                            feedbackMessage = "Task scheduled for today"
-                        } else if Calendar.current.isDateInTomorrow(dueDate) {
-                            feedbackMessage = "Task scheduled for tomorrow"
-                        } else if isDateInCurrentWeek(dueDate) {
-                            let dateFormatter = DateFormatter()
-                            dateFormatter.dateFormat = "EEEE"
-                            let dayOfWeek = dateFormatter.string(from: dueDate)
-                            feedbackMessage = "Task scheduled for \(dayOfWeek)"
-                        } else {
-                            let dateFormatter = DateFormatter()
-                            dateFormatter.dateFormat = "MMM d"
-                            let formattedDate = dateFormatter.string(from: dueDate)
-                            feedbackMessage = "Task scheduled for \(formattedDate)"
-                        }
-                    } else {
-                        feedbackMessage = "Task added"
-                    }
-                    
-                    // Haptic feedback
-                    let generator = UINotificationFeedbackGenerator()
-                    generator.notificationOccurred(.success)
-                    
-                    // Reset animation state
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation {
-                            feedbackMessage = ""
+                        print("CRITICAL DEBUG: Task inserted at index 0, total tasks: \(taskManager.tasks.count)")
+                        
+                        // FORCE UI update
+                        forceUpdateTasks.toggle()
+                        
+                        // Show success feedback
+                        feedbackMessage = "Task added: \(finalText)"
+                        showingFeedback = true
+                        
+                        // Provide haptic feedback
+                        let generator = UINotificationFeedbackGenerator()
+                        generator.notificationOccurred(.success)
+                        
+                        // Reset feedback after delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            withAnimation {
+                                showingFeedback = false
+                            }
                         }
                     }
                 } else {
-                    showingRecordingIndicator = false
+                    DispatchQueue.main.async {
+                        print("CRITICAL DEBUG: Empty text received, hiding recording indicator")
+                        showingRecordingIndicator = false
+                    }
                 }
             }
             

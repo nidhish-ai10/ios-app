@@ -295,12 +295,16 @@ class SpeechRecognitionService: NSObject, ObservableObject {
                         // Get the final text to process
                         let finalText = self.storedTranscribedText.isEmpty ? self.transcribedText : self.storedTranscribedText
                         
+                        // CRITICAL DEBUG: Add logging for final text processing
+                        print("CRITICAL DEBUG: Processing final text: '\(finalText)'")
+                        
                         // Check if we have text to process and it hasn't been processed already
                         if !finalText.isEmpty && finalText != self.lastProcessedText {
                             self.lastProcessedText = finalText
                             
                             // Process the task text - moved outside of UI update to improve performance
                             let (title, dueDate) = self.processTaskText(finalText)
+                            print("CRITICAL DEBUG: Extracted task title: '\(title)', dueDate: \(String(describing: dueDate))")
                             
                             // Clear the transcribed text after processing
                             self.transcribedText = ""

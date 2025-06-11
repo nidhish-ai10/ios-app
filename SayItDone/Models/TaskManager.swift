@@ -33,6 +33,8 @@ class TaskManager: ObservableObject {
     
     // Optimized task addition with direct return of UUID
     func addTask(title: String, dueDate: Date?) -> UUID {
+        print("DEBUG: Adding task with title: \(title)")
+        
         // Generate a new ID more efficiently
         lastTaskID = UUID()
         
@@ -41,6 +43,7 @@ class TaskManager: ObservableObject {
         
         // Add the task to the array immediately on the current thread
         tasks.append(newTask)
+        print("DEBUG: Task added, current task count: \(tasks.count)")
         
         // Then sort in the background
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -252,15 +255,10 @@ class TaskManager: ObservableObject {
     
     // Direct method for immediate task display - CRITICAL FIX
     func addTaskDirectly(_ task: Task) {
-        // Add task directly to the array without any async delays
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
-            tasks.insert(task, at: 0) // Add at the top for immediate visibility
-        }
+        print("DEBUG: Adding task directly with ID: \(task.id), title: \(task.title)")
         
-        // Sort in background after task is already visible
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            self.sortTasksBackground()
-        }
+        // Add task directly to the array without any async delays
+        tasks.insert(task, at: 0) // Add at the top for immediate visibility
+        print("DEBUG: Task added directly, current task count: \(tasks.count)")
     }
 } 
