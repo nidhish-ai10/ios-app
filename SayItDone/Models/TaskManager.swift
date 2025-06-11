@@ -253,15 +253,18 @@ class TaskManager: ObservableObject {
         sortTasks()
     }
     
-    // Direct method for immediate task display - CRITICAL FIX
+    // Direct method for immediate task display
     func addTaskDirectly(_ task: Task) {
         print("DEBUG: Adding task directly with ID: \(task.id), title: \(task.title)")
         
-        // SINGLE TASK MODE: Clear all existing tasks first
-        tasks.removeAll()
-        
-        // Add task directly as the only task
+        // Add task directly to the array - support multiple tasks
         tasks.insert(task, at: 0) // Add at the top for immediate visibility
-        print("DEBUG: Single task mode - replaced all tasks with new one")
+        print("DEBUG: Task added directly, current task count: \(tasks.count)")
+        
+        // Sort tasks in background
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            self.sortTasksBackground()
+        }
     }
 } 

@@ -51,11 +51,10 @@ struct TasksView: View {
                             .frame(maxWidth: .infinity)
                             .frame(minHeight: UIScreen.main.bounds.height - 200)
                     } else {
-                        // Task list - CRITICAL FIX: Only show the latest/single task
-                        VStack(spacing: 12) {
-                            // Only display the first task in the list
-                            if let latestTask = taskManager.tasks.first {
-                                TaskRowView(task: latestTask) { task in
+                        // Task list - MODIFIED: Support multiple tasks
+                        LazyVStack(spacing: 12) {
+                            ForEach(taskManager.tasks) { task in
+                                TaskRowView(task: task) { task in
                                     // Delete task action
                                     provideHapticFeedback(.medium)
                                     taskManager.removeTask(task)
@@ -63,14 +62,14 @@ struct TasksView: View {
                                     // Show undo button
                                     showUndoOption()
                                 }
-                                .id(latestTask.id)
-                                .background(newTaskID == latestTask.id ? Color.yellow.opacity(0.3) : Color.clear)
+                                .id(task.id)
+                                .background(newTaskID == task.id ? Color.yellow.opacity(0.3) : Color.clear)
                                 .cornerRadius(8)
-                                .scaleEffect(newTaskID == latestTask.id && showingNewTaskAnimation ? 1.05 : 1.0)
+                                .scaleEffect(newTaskID == task.id && showingNewTaskAnimation ? 1.05 : 1.0)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingNewTaskAnimation)
                             }
                         }
-                        .id(forceUpdateTasks) // EMERGENCY FIX: Force view to rebuild when this changes
+                        .id(forceUpdateTasks) // Force view to rebuild when this changes
                         .padding(.horizontal, 16)
                         .padding(.top, 20)
                     }
@@ -153,16 +152,17 @@ struct TasksView: View {
                         print("CRITICAL DEBUG: Creating task and updating UI")
                         showingRecordingIndicator = false
                         
-                        // CRITICAL FIX: Create task immediately without delay
+                        // Create task immediately without delay
                         let newTask = Task(id: UUID(), title: finalText, dueDate: dueDate)
                         print("CRITICAL DEBUG: Created task with ID: \(newTask.id)")
                         
-                        // SINGLE TASK MODE: Clear existing tasks and only show the new one
-                        taskManager.tasks.removeAll()
-                        
-                        // Add the new task as the only task
+                        // MODIFIED: Add new task without removing existing ones
                         taskManager.tasks.insert(newTask, at: 0)
-                        print("CRITICAL DEBUG: Single task inserted, cleared all others")
+                        print("CRITICAL DEBUG: Added new task, total count: \(taskManager.tasks.count)")
+                        
+                        // Set highlighting for new task
+                        newTaskID = newTask.id
+                        showingNewTaskAnimation = true
                         
                         // FORCE UI update
                         forceUpdateTasks.toggle()
@@ -175,7 +175,14 @@ struct TasksView: View {
                         let generator = UINotificationFeedbackGenerator()
                         generator.notificationOccurred(.success)
                         
-                        // Reset feedback after delay
+                        // Reset animation and feedback after delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation {
+                                showingNewTaskAnimation = false
+                                newTaskID = nil
+                            }
+                        }
+                        
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                             withAnimation {
                                 showingFeedback = false
