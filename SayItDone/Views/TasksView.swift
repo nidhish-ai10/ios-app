@@ -46,27 +46,10 @@ struct TasksView: View {
                 // Tasks section
                 ScrollView {
                     if taskManager.tasks.isEmpty {
-                        // Empty state when no tasks
-                        VStack(spacing: 20) {
-                            Spacer()
-                                .frame(height: 60)
-                            
-                            Image(systemName: "checkmark.circle")
-                                .font(.system(size: 70))
-                                .foregroundColor(.gray.opacity(0.5))
-                            
-                            Text("Ready for your tasks")
-                                .font(.title2)
-                                .foregroundColor(.gray)
-                            
-                            Text("Just speak to add one")
-                                .font(.subheadline)
-                                .foregroundColor(.gray.opacity(0.8))
-                            
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: UIScreen.main.bounds.height - 200)
+                        // Empty state - completely blank
+                        Spacer()
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: UIScreen.main.bounds.height - 200)
                     } else {
                         // Task list - CRITICAL FIX: Only show the latest/single task
                         VStack(spacing: 12) {
