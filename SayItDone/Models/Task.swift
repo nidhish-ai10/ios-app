@@ -64,33 +64,21 @@ struct Task: Identifiable, Equatable {
     func formattedDueDate() -> String {
         guard let dueDate = dueDate else { return "" }
         
-        let calendar = Calendar.current
-        let now = Date()
-        let today = calendar.startOfDay(for: now)
-        let dueDateTime = calendar.startOfDay(for: dueDate)
-        
         // Check if time component is set (not midnight)
+        let calendar = Calendar.current
+        let dueDateTime = calendar.startOfDay(for: dueDate)
         let hasTimeComponent = !calendar.isDate(dueDate, equalTo: dueDateTime, toGranularity: .minute)
         
-        // Reuse date formatters for better performance
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "h:mm a"
-        let timeString = hasTimeComponent ? " at \(timeFormatter.string(from: dueDate))" : ""
+        // Always use exact date format
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM d, yyyy"
         
-        if calendar.isDateInToday(dueDate) {
-            return "Today\(timeString)"
-        } else if calendar.isDateInTomorrow(dueDate) {
-            return "Tomorrow\(timeString)"
-        } else if calendar.isDate(dueDateTime, equalTo: today.addingTimeInterval(2*24*60*60), toGranularity: .day) {
-            return "In 2 days\(timeString)"
-        } else if calendar.isDate(dueDateTime, equalTo: today, toGranularity: .day) || calendar.dateComponents([.day], from: today, to: dueDateTime).day! < 7 {
-            let weekdayFormatter = DateFormatter()
-            weekdayFormatter.dateFormat = "EEEE"
-            return "\(weekdayFormatter.string(from: dueDate))\(timeString)"
+        // Add time if present
+        if hasTimeComponent {
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "h:mm a"
+            return "\(dateFormatter.string(from: dueDate)) at \(timeFormatter.string(from: dueDate))"
         } else {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateStyle = .medium
-            dateFormatter.timeStyle = hasTimeComponent ? .short : .none
             return dateFormatter.string(from: dueDate)
         }
     }
