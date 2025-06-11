@@ -51,10 +51,10 @@ struct TasksView: View {
                         // Task list
                         LazyVStack(spacing: 12) {
                             ForEach(taskManager.tasks) { task in
-                                TaskRowView(task: task) {
+                                TaskRowView(task: task) { task in
                                     // Delete task action
                                     provideHapticFeedback(.medium)
-                                    taskManager.removeTask(with: task.id)
+                                    taskManager.removeTask(task)
                                     
                                     // Show undo button
                                     showUndoOption()

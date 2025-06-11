@@ -72,6 +72,13 @@ class TaskManager: ObservableObject {
         }
     }
     
+    // For backward compatibility
+    func removeTask(with id: UUID) {
+        if let task = tasks.first(where: { $0.id == id }) {
+            removeTask(task)
+        }
+    }
+    
     // Optimized undo implementation
     func undoLastDeletion() -> Bool {
         guard let lastDeleted = deletedTasks.popLast() else {
