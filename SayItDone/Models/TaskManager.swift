@@ -267,4 +267,53 @@ class TaskManager: ObservableObject {
             self.sortTasksBackground()
         }
     }
+    
+    // Method to clear all tasks immediately (for testing/debugging)
+    func clearAllTasksImmediately() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            withAnimation(.easeOut(duration: 0.3)) {
+                self.tasks.removeAll()
+            }
+        }
+    }
+    
+    // Enhanced duplicate detection method
+    func hasDuplicateTask(title: String) -> Bool {
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return tasks.contains { existingTask in
+            let existingTitle = existingTask.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return existingTitle == normalizedTitle
+        }
+    }
+    
+    // Optimized task addition with duplicate prevention
+    func addTaskIfNotDuplicate(title: String, dueDate: Date?) -> (success: Bool, taskID: UUID?) {
+        print("DEBUG: Checking for duplicate task with title: \(title)")
+        
+        // Check for duplicates first
+        if hasDuplicateTask(title: title) {
+            print("DEBUG: Duplicate task detected, not adding")
+            return (false, nil)
+        }
+        
+        // Generate a new ID more efficiently
+        lastTaskID = UUID()
+        
+        // Create the task with the pre-generated ID
+        let newTask = Task(id: lastTaskID, title: title, dueDate: dueDate)
+        
+        // Add the task to the array immediately on the current thread
+        tasks.append(newTask)
+        print("DEBUG: Task added successfully, current task count: \(tasks.count)")
+        
+        // Then sort in the background
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            self.sortTasksBackground()
+        }
+        
+        // Return success and the ID immediately for animations
+        return (true, lastTaskID)
+    }
 } 

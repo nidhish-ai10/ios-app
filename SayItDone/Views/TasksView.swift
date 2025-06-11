@@ -145,54 +145,73 @@ struct TasksView: View {
             speechService.onRecognitionComplete = { finalText, dueDate in
                 print("CRITICAL DEBUG: Recognition complete with text: \(finalText), dueDate: \(String(describing: dueDate))")
                 
-                // Only process non-empty tasks
-                if !finalText.isEmpty {
+                // Only process non-empty tasks and prevent duplicates
+                if !finalText.isEmpty && !processingTask {
+                    // Set processing flag to prevent duplicate additions
+                    processingTask = true
+                    
                     // IMPORTANT: Force UI updates to happen on main thread
                     DispatchQueue.main.async {
-                        print("CRITICAL DEBUG: Creating task and updating UI")
+                        print("CRITICAL DEBUG: Creating single task and updating UI")
                         showingRecordingIndicator = false
                         
-                        // Create task immediately without delay
-                        let newTask = Task(id: UUID(), title: finalText, dueDate: dueDate)
-                        print("CRITICAL DEBUG: Created task with ID: \(newTask.id)")
+                        // Use TaskManager's duplicate-prevention method
+                        let result = taskManager.addTaskIfNotDuplicate(title: finalText, dueDate: dueDate)
                         
-                        // MODIFIED: Add new task without removing existing ones
-                        taskManager.tasks.insert(newTask, at: 0)
-                        print("CRITICAL DEBUG: Added new task, total count: \(taskManager.tasks.count)")
-                        
-                        // Set highlighting for new task
-                        newTaskID = newTask.id
-                        showingNewTaskAnimation = true
-                        
-                        // FORCE UI update
-                        forceUpdateTasks.toggle()
-                        
-                        // Show success feedback
-                        feedbackMessage = "Task added: \(finalText)"
-                        showingFeedback = true
-                        
-                        // Provide haptic feedback
-                        let generator = UINotificationFeedbackGenerator()
-                        generator.notificationOccurred(.success)
-                        
-                        // Reset animation and feedback after delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation {
-                                showingNewTaskAnimation = false
-                                newTaskID = nil
+                        if result.success, let newTaskID = result.taskID {
+                            print("CRITICAL DEBUG: Added task with ID: \(newTaskID), total count: \(taskManager.tasks.count)")
+                            
+                            // Set highlighting for new task
+                            self.newTaskID = newTaskID
+                            showingNewTaskAnimation = true
+                            
+                            // Show success feedback
+                            feedbackMessage = "Task added: \(finalText)"
+                            showingFeedback = true
+                            
+                            // Provide haptic feedback
+                            let generator = UINotificationFeedbackGenerator()
+                            generator.notificationOccurred(.success)
+                            
+                            // Reset animation and feedback after delay
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                withAnimation {
+                                    showingNewTaskAnimation = false
+                                    self.newTaskID = nil
+                                }
+                            }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                withAnimation {
+                                    showingFeedback = false
+                                }
+                            }
+                        } else {
+                            print("CRITICAL DEBUG: Duplicate task detected, not adding")
+                            feedbackMessage = "Task already exists"
+                            showingFeedback = true
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                withAnimation {
+                                    showingFeedback = false
+                                }
                             }
                         }
                         
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                            withAnimation {
-                                showingFeedback = false
-                            }
+                        // Reset processing flag after a short delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            processingTask = false
                         }
                     }
                 } else {
                     DispatchQueue.main.async {
-                        print("CRITICAL DEBUG: Empty text received, hiding recording indicator")
+                        print("CRITICAL DEBUG: Empty text or already processing, hiding recording indicator")
                         showingRecordingIndicator = false
+                        
+                        // Reset processing flag if it was set
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            processingTask = false
+                        }
                     }
                 }
             }
