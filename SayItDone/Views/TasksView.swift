@@ -139,25 +139,23 @@ struct TasksView: View {
             
             // Set up the speech service with improved feedback
             speechService.onRecognitionComplete = { text, dueDate in
-                // Update UI immediately to indicate processing
-                withAnimation(.easeOut(duration: 0.2)) {
-                    self.showingRecordingIndicator = false
-                }
-                
                 // Only process non-empty tasks
                 if !text.isEmpty {
-                    // Set processing flag to prevent UI updates during task creation
-                    self.processingTask = true
+                    // Add the task immediately on main thread
+                    let newTaskId = self.taskManager.addTask(title: text, dueDate: dueDate)
                     
-                    // Add the task with minimal delay
+                    // Store the ID for animations and force immediate UI update
                     DispatchQueue.main.async {
-                        // Add the new task
-                        let newTaskId = self.taskManager.addTask(title: text, dueDate: dueDate)
-                        
                         // Store the ID for animations
                         self.newTaskID = newTaskId
                         
-                        // Animate the new task appearance
+                        // Hide recording indicator only after task is added
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            self.showingRecordingIndicator = false
+                            self.processingTask = true
+                        }
+                        
+                        // Force layout update
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             self.showingNewTaskAnimation = true
                         }
@@ -183,17 +181,17 @@ struct TasksView: View {
                             self.showFeedback(message: "Task added")
                         }
                         
+                        // Provide haptic feedback on task creation
+                        self.provideHapticFeedback(.success)
+                        
                         // Reset animation after delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                             withAnimation {
                                 self.showingNewTaskAnimation = false
                                 self.newTaskID = nil
                                 self.processingTask = false
                             }
                         }
-                        
-                        // Provide haptic feedback on task creation
-                        self.provideHapticFeedback(.success)
                     }
                 } else {
                     // No task to add, just hide the recording indicator

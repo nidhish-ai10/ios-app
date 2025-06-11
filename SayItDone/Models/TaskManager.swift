@@ -39,19 +39,50 @@ class TaskManager: ObservableObject {
         // Create the task with the pre-generated ID
         let newTask = Task(id: lastTaskID, title: title, dueDate: dueDate)
         
-        // Use direct modification instead of array operations
-        DispatchQueue.main.async { [weak self] in
+        // Add the task to the array immediately on the current thread
+        tasks.append(newTask)
+        
+        // Then sort in the background
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
-            // Add new task and trigger single UI update
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                self.tasks.append(newTask)
-                self.sortTasks()
-            }
+            self.sortTasksBackground()
         }
         
         // Return the ID immediately for animations
         return lastTaskID
+    }
+    
+    // Background sorting that doesn't block the main thread
+    private func sortTasksBackground() {
+        let sortedTasks: [Task]
+        
+        switch sortMethod {
+        case .creationTime:
+            sortedTasks = tasks.sorted { $0.id.uuidString > $1.id.uuidString }
+        case .dueDate:
+            sortedTasks = tasks.sorted { first, second in
+                // Tasks with no due date go to the bottom
+                if first.dueDate == nil && second.dueDate == nil {
+                    return first.id.uuidString > second.id.uuidString // Fall back to creation time
+                } else if first.dueDate == nil {
+                    return false
+                } else if second.dueDate == nil {
+                    return true
+                } else {
+                    return first.dueDate! < second.dueDate!
+                }
+            }
+        }
+        
+        // Update on main thread only if order changed
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.tasks != sortedTasks {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.tasks = sortedTasks
+                }
+            }
+        }
     }
     
     // Optimized task removal method
