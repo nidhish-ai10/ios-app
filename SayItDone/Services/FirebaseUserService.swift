@@ -170,41 +170,29 @@ class FirebaseUserService: ObservableObject {
   
    func storeConversationAnalysis(_ messages: [String]) async throws {
        // Get the analysis from the conversation analysis service
-       let analysis = try await ConversationAnalysisService.shared.analyzeConversation(messages)
-       
-       // Store each category as a separate event
-       if let preferences = analysis["preferences"] as? [String: Any] {
-           try await withThrowingTaskGroup(of: Void.self) { group in
-               for (key, value) in preferences {
-                   group.addTask {
-                       try await self.addEventAsync(eventType: "preference_\(key)", eventData: ["value": value])
-                   }
-               }
-           }
+       guard let events = try await ConversationAnalysisService.shared.analyzeSnippet(
+           assistantMessage: messages[0],
+           userMessage: messages[1]
+       ) else {
+           // No meaningful information found, nothing to store
+           return
        }
        
-       if let personalInfo = analysis["personal_info"] as? [String: Any] {
-           try await withThrowingTaskGroup(of: Void.self) { group in
-               for (key, value) in personalInfo {
-                   if let value = value as? String, !value.isEmpty {
-                       group.addTask {
-                           try await self.addEventAsync(eventType: "personal_info_\(key)", eventData: ["value": value])
-                       }
-                   }
-               }
+       // Store each event individually
+       for event in events {
+           guard let eventType = event["event"] as? String,
+                 let eventData = event["data"] as? [String: Any] else {
+               continue
            }
-       }
-       
-       if let interactionStyle = analysis["interaction_style"] as? [String: Any] {
-           try await withThrowingTaskGroup(of: Void.self) { group in
-               for (key, value) in interactionStyle {
-                   if let value = value as? String, !value.isEmpty {
-                       group.addTask {
-                           try await self.addEventAsync(eventType: "interaction_style_\(key)", eventData: ["value": value])
-                       }
-                   }
-               }
-           }
+           
+           // Add user_id to the event data
+           var dataWithUserId = eventData
+           dataWithUserId["user_id"] = currentUser?.id
+           
+           try await addEventAsync(
+               eventType: eventType,
+               eventData: dataWithUserId
+           )
        }
    }
    
@@ -222,17 +210,31 @@ class FirebaseUserService: ObservableObject {
    
    // MARK: - Conversation Analysis Integration
    
-   /// Convenience method to analyze and store conversation data in one step
-   func analyzeAndStoreConversation(_ messages: [String]) async throws {
-       let analysis = try await ConversationAnalysisService.shared.analyzeConversation(messages)
+   /// Analyzes a single conversation snippet and stores events if meaningful information is found
+   func analyzeSnippet(assistantMessage: String, userMessage: String) async throws {
+       guard let events = try await ConversationAnalysisService.shared.analyzeSnippet(
+           assistantMessage: assistantMessage,
+           userMessage: userMessage
+       ) else {
+           // No meaningful information found, nothing to store
+           return
+       }
        
-       // Store the raw analysis as a single event for reference
-       try await addEventAsync(
-           eventType: "conversation_analysis",
-           eventData: ["raw_analysis": analysis]
-       )
-       
-       // Store individual components as separate events
-       try await storeConversationAnalysis(messages)
+       // Store each event individually
+       for event in events {
+           guard let eventType = event["event"] as? String,
+                 let eventData = event["data"] as? [String: Any] else {
+               continue
+           }
+           
+           // Add user_id to the event data
+           var dataWithUserId = eventData
+           dataWithUserId["user_id"] = currentUser?.id
+           
+           try await addEventAsync(
+               eventType: eventType,
+               eventData: dataWithUserId
+           )
+       }
    }
 }
