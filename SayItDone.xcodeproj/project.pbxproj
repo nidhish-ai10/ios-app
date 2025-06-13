@@ -1,0 +1,599 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A7E7C03D2DFB1DA600D57D3B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A7E7C03C2DFB1DA600D57D3B /* FirebaseAuth */; };
+		A7E7C03F2DFB1DA600D57D3B /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = A7E7C03E2DFB1DA600D57D3B /* FirebaseCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A7017D712DEE23B10022A262 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A7017D5B2DEE23AF0022A262 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A7017D622DEE23AF0022A262;
+			remoteInfo = SayItDone;
+		};
+		A7017D7B2DEE23B10022A262 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A7017D5B2DEE23AF0022A262 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A7017D622DEE23AF0022A262;
+			remoteInfo = SayItDone;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A7017D632DEE23AF0022A262 /* SayItDone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SayItDone.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7017D702DEE23B10022A262 /* SayItDoneTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SayItDoneTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7017D7A2DEE23B10022A262 /* SayItDoneUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SayItDoneUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A7017D652DEE23AF0022A262 /* SayItDone */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SayItDone;
+			sourceTree = "<group>";
+		};
+		A7017D732DEE23B10022A262 /* SayItDoneTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SayItDoneTests;
+			sourceTree = "<group>";
+		};
+		A7017D7D2DEE23B10022A262 /* SayItDoneUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SayItDoneUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A7017D602DEE23AF0022A262 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A7E7C03F2DFB1DA600D57D3B /* FirebaseCore in Frameworks */,
+				A7E7C03D2DFB1DA600D57D3B /* FirebaseAuth in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7017D6D2DEE23B10022A262 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7017D772DEE23B10022A262 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A7017D5A2DEE23AF0022A262 = {
+			isa = PBXGroup;
+			children = (
+				A7017D652DEE23AF0022A262 /* SayItDone */,
+				A7017D732DEE23B10022A262 /* SayItDoneTests */,
+				A7017D7D2DEE23B10022A262 /* SayItDoneUITests */,
+				A7017D642DEE23AF0022A262 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A7017D642DEE23AF0022A262 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A7017D632DEE23AF0022A262 /* SayItDone.app */,
+				A7017D702DEE23B10022A262 /* SayItDoneTests.xctest */,
+				A7017D7A2DEE23B10022A262 /* SayItDoneUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A7017D622DEE23AF0022A262 /* SayItDone */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7017D842DEE23B10022A262 /* Build configuration list for PBXNativeTarget "SayItDone" */;
+			buildPhases = (
+				A7017D5F2DEE23AF0022A262 /* Sources */,
+				A7017D602DEE23AF0022A262 /* Frameworks */,
+				A7017D612DEE23AF0022A262 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A7017D652DEE23AF0022A262 /* SayItDone */,
+			);
+			name = SayItDone;
+			packageProductDependencies = (
+				A7E7C03C2DFB1DA600D57D3B /* FirebaseAuth */,
+				A7E7C03E2DFB1DA600D57D3B /* FirebaseCore */,
+			);
+			productName = SayItDone;
+			productReference = A7017D632DEE23AF0022A262 /* SayItDone.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A7017D6F2DEE23B10022A262 /* SayItDoneTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7017D872DEE23B10022A262 /* Build configuration list for PBXNativeTarget "SayItDoneTests" */;
+			buildPhases = (
+				A7017D6C2DEE23B10022A262 /* Sources */,
+				A7017D6D2DEE23B10022A262 /* Frameworks */,
+				A7017D6E2DEE23B10022A262 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A7017D722DEE23B10022A262 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A7017D732DEE23B10022A262 /* SayItDoneTests */,
+			);
+			name = SayItDoneTests;
+			packageProductDependencies = (
+			);
+			productName = SayItDoneTests;
+			productReference = A7017D702DEE23B10022A262 /* SayItDoneTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A7017D792DEE23B10022A262 /* SayItDoneUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A7017D8A2DEE23B10022A262 /* Build configuration list for PBXNativeTarget "SayItDoneUITests" */;
+			buildPhases = (
+				A7017D762DEE23B10022A262 /* Sources */,
+				A7017D772DEE23B10022A262 /* Frameworks */,
+				A7017D782DEE23B10022A262 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A7017D7C2DEE23B10022A262 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A7017D7D2DEE23B10022A262 /* SayItDoneUITests */,
+			);
+			name = SayItDoneUITests;
+			packageProductDependencies = (
+			);
+			productName = SayItDoneUITests;
+			productReference = A7017D7A2DEE23B10022A262 /* SayItDoneUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A7017D5B2DEE23AF0022A262 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1630;
+				LastUpgradeCheck = 1630;
+				TargetAttributes = {
+					A7017D622DEE23AF0022A262 = {
+						CreatedOnToolsVersion = 16.3;
+					};
+					A7017D6F2DEE23B10022A262 = {
+						CreatedOnToolsVersion = 16.3;
+						TestTargetID = A7017D622DEE23AF0022A262;
+					};
+					A7017D792DEE23B10022A262 = {
+						CreatedOnToolsVersion = 16.3;
+						TestTargetID = A7017D622DEE23AF0022A262;
+					};
+				};
+			};
+			buildConfigurationList = A7017D5E2DEE23AF0022A262 /* Build configuration list for PBXProject "SayItDone" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A7017D5A2DEE23AF0022A262;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A7E7C03B2DFB1DA600D57D3B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A7017D642DEE23AF0022A262 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A7017D622DEE23AF0022A262 /* SayItDone */,
+				A7017D6F2DEE23B10022A262 /* SayItDoneTests */,
+				A7017D792DEE23B10022A262 /* SayItDoneUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A7017D612DEE23AF0022A262 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7017D6E2DEE23B10022A262 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7017D782DEE23B10022A262 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A7017D5F2DEE23AF0022A262 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7017D6C2DEE23B10022A262 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A7017D762DEE23B10022A262 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A7017D722DEE23B10022A262 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A7017D622DEE23AF0022A262 /* SayItDone */;
+			targetProxy = A7017D712DEE23B10022A262 /* PBXContainerItemProxy */;
+		};
+		A7017D7C2DEE23B10022A262 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A7017D622DEE23AF0022A262 /* SayItDone */;
+			targetProxy = A7017D7B2DEE23B10022A262 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A7017D822DEE23B10022A262 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A7017D832DEE23B10022A262 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A7017D852DEE23B10022A262 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SayItDone/SayItDone.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HC742W2QC6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "SayItDone needs access to your microphone to recognize your voice commands for creating tasks.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "SayItDone needs speech recognition permission to convert your spoken words into tasks.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Nidhish.SayItDoneTask.SayItDone;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A7017D862DEE23B10022A262 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SayItDone/SayItDone.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = HC742W2QC6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "SayItDone needs access to your microphone to recognize your voice commands for creating tasks.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "SayItDone needs speech recognition permission to convert your spoken words into tasks.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Nidhish.SayItDoneTask.SayItDone;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A7017D882DEE23B10022A262 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Nidhish.SayItDoneTask.SayItDoneTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SayItDone.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SayItDone";
+			};
+			name = Debug;
+		};
+		A7017D892DEE23B10022A262 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Nidhish.SayItDoneTask.SayItDoneTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SayItDone.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SayItDone";
+			};
+			name = Release;
+		};
+		A7017D8B2DEE23B10022A262 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Nidhish.SayItDoneTask.SayItDoneUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SayItDone;
+			};
+			name = Debug;
+		};
+		A7017D8C2DEE23B10022A262 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Nidhish.SayItDoneTask.SayItDoneUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SayItDone;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A7017D5E2DEE23AF0022A262 /* Build configuration list for PBXProject "SayItDone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7017D822DEE23B10022A262 /* Debug */,
+				A7017D832DEE23B10022A262 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A7017D842DEE23B10022A262 /* Build configuration list for PBXNativeTarget "SayItDone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7017D852DEE23B10022A262 /* Debug */,
+				A7017D862DEE23B10022A262 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A7017D872DEE23B10022A262 /* Build configuration list for PBXNativeTarget "SayItDoneTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7017D882DEE23B10022A262 /* Debug */,
+				A7017D892DEE23B10022A262 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A7017D8A2DEE23B10022A262 /* Build configuration list for PBXNativeTarget "SayItDoneUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7017D8B2DEE23B10022A262 /* Debug */,
+				A7017D8C2DEE23B10022A262 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A7E7C03B2DFB1DA600D57D3B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.14.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A7E7C03C2DFB1DA600D57D3B /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7E7C03B2DFB1DA600D57D3B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		A7E7C03E2DFB1DA600D57D3B /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7E7C03B2DFB1DA600D57D3B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A7017D5B2DEE23AF0022A262 /* Project object */;
+}
