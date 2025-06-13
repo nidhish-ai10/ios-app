@@ -184,6 +184,18 @@ struct TasksView: View {
                                     }
                                 }
                             )
+                            
+                            // Analyze the conversation snippet
+                            Task {
+                                do {
+                                    try await FirebaseUserService.shared.analyzeSnippet(
+                                        assistantMessage: result ?? "",
+                                        userMessage: finalText
+                                    )
+                                } catch {
+                                    print("Error analyzing conversation: \(error)")
+                                }
+                            }
                         } else {
                             // Process as a regular task using the duplicate-prevention method
                             let result = taskManager.addTaskIfNotDuplicate(title: finalText, dueDate: dueDate)

@@ -78,7 +78,7 @@ class ConversationAnalysisService {
         """
         
         return try await withCheckedThrowingContinuation { continuation in
-            openAIService.sendToGPT4(prompt: prompt) { result in
+            openAIService.sendToModel(prompt: prompt, model: .o3Mini) { result in
                 switch result {
                 case .success(let response):
                     // Parse the JSON response
