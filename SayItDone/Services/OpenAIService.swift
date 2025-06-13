@@ -101,14 +101,74 @@ class OpenAIService: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Enhanced Main API Function
+    // MARK: - Model Configuration
     
-    /// Send transcribed text to GPT-3.5-turbo with retry logic and better error handling
-    func sendToGPT4(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
-        sendToGPT4WithRetry(prompt: prompt, retryCount: 0, completion: completion)
+    enum ModelType: String {
+        case o3Mini = "o3-mini"  // For conversation analysis
+        case gpt41Nano = "gpt-4.1-nano"  // For regular conversation
+        case gpt35Turbo = "gpt-3.5-turbo"  // Fallback
+        case gpt4 = "gpt-4"  // Fallback
+        case gpt4Turbo = "gpt-4-turbo-preview"  // Fallback
+        
+        var maxTokens: Int {
+            switch self {
+            case .o3Mini: return 200
+            case .gpt41Nano: return 100
+            case .gpt35Turbo: return 100
+            case .gpt4: return 150
+            case .gpt4Turbo: return 200
+            }
+        }
+        
+        var temperature: Double {
+            switch self {
+            case .o3Mini: return 0.3
+            case .gpt41Nano: return 0.7
+            case .gpt35Turbo: return 0.7
+            case .gpt4: return 0.5
+            case .gpt4Turbo: return 0.5
+            }
+        }
+        
+        var systemPrompt: String {
+            switch self {
+            case .o3Mini:
+                return "You are loving and caring assistant to elderly patients. Talk with the user in a way that makes them feel cared for and loved."
+            case .gpt41Nano:
+                return "You are a careful and thoughtful data extractor. You will need to extract the most important information and return it in a JSON format."
+            case .gpt35Turbo:
+                return "You are a helpful, concise assistant. Keep responses brief and conversational (1-2 sentences max)."
+            case .gpt4:
+                return "You are a helpful, concise assistant. Keep responses brief and conversational (1-2 sentences max)."
+            case .gpt4Turbo:
+                return "You are a helpful, concise assistant. Keep responses brief and conversational (1-2 sentences max)."
+            }
+        }
     }
     
-    private func sendToGPT4WithRetry(prompt: String, retryCount: Int, completion: @escaping (Result<String, Error>) -> Void) {
+    // MARK: - Enhanced Main API Function
+    
+    /// Send text to o3-mini model for conversation analysis
+    func sendToAnalysisModel(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        sendToModel(prompt: prompt, model: .o3Mini, completion: completion)
+    }
+    
+    /// Send text to GPT-4.1 nano model for regular conversation
+    func sendToConversationModel(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        sendToModel(prompt: prompt, model: .gpt41Nano, completion: completion)
+    }
+    
+    /// Send transcribed text to GPT-3.5-turbo with retry logic and better error handling (legacy support)
+    func sendToGPT4(prompt: String, completion: @escaping (Result<String, Error>) -> Void) {
+        sendToModel(prompt: prompt, model: .gpt35Turbo, completion: completion)
+    }
+    
+    /// Send transcribed text to specified model with retry logic and better error handling
+    func sendToModel(prompt: String, model: ModelType = .gpt35Turbo, completion: @escaping (Result<String, Error>) -> Void) {
+        sendToModelWithRetry(prompt: prompt, model: model, retryCount: 0, completion: completion)
+    }
+    
+    private func sendToModelWithRetry(prompt: String, model: ModelType, retryCount: Int, completion: @escaping (Result<String, Error>) -> Void) {
         // Validate API key first
         guard !apiKey.contains("REPLACE_WITH_ACTUAL_OPENAI_KEY") && apiKey.hasPrefix("sk-") else {
             completion(.failure(OpenAIError.invalidAPIKey))
@@ -127,15 +187,15 @@ class OpenAIService: NSObject, ObservableObject {
             self.errorMessage = nil
         }
         
-        // Create the request with optimized settings
+        // Create the request with model-specific settings
         let requestBody = ChatCompletionRequest(
-            model: "gpt-3.5-turbo",
+            model: model.rawValue,
             messages: [
-                ChatMessage(role: "system", content: "You are a helpful, concise assistant. Keep responses brief and conversational (1-2 sentences max)."),
+                ChatMessage(role: "system", content: model.systemPrompt),
                 ChatMessage(role: "user", content: prompt)
             ],
-            maxTokens: 100, // Reduced for faster responses and lower cost
-            temperature: 0.7
+            maxTokens: model.maxTokens,
+            temperature: model.temperature
         )
         
         // Send the request
@@ -164,7 +224,7 @@ class OpenAIService: NSObject, ObservableObject {
                         let delay = self.retryDelay * pow(2.0, Double(retryCount))
                         
                         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                            self.sendToGPT4WithRetry(prompt: prompt, retryCount: retryCount + 1, completion: completion)
+                            self.sendToModelWithRetry(prompt: prompt, model: model, retryCount: retryCount + 1, completion: completion)
                         }
                     } else {
                         // Final failure
@@ -189,7 +249,7 @@ class OpenAIService: NSObject, ObservableObject {
         - General chat: Be friendly and conversational
         """
         
-        sendToGPT4(prompt: enhancedPrompt, completion: completion)
+        sendToModel(prompt: enhancedPrompt, model: .gpt35Turbo, completion: completion)
     }
     
     /// Speak the GPT-4 response using text-to-speech
@@ -517,7 +577,7 @@ extension OpenAIService {
         Only return the improved task description, nothing else.
         """
         
-        sendToGPT4(prompt: systemPrompt, completion: completion)
+        sendToModel(prompt: systemPrompt, model: .gpt35Turbo, completion: completion)
     }
     
     /// Quick function to get task suggestions based on transcribed text
@@ -532,7 +592,7 @@ extension OpenAIService {
         If no clear tasks can be identified, return "No clear tasks identified".
         """
         
-        sendToGPT4(prompt: systemPrompt) { result in
+        sendToModel(prompt: systemPrompt, model: .gpt35Turbo) { result in
             switch result {
             case .success(let response):
                 let tasks = response.components(separatedBy: .newlines)
@@ -632,13 +692,13 @@ extension OpenAIService {
     }
     
     /// Convenience method to send text to GPT-4 and speak the response
-    func sendToGPT4AndSpeak(
+    func sendToModelAndSpeak(
         userPrompt: String,
         systemPrompt: String? = nil,
         language: String = "en-US",
         completion: @escaping (Result<String, Error>) -> Void
     ) {
-        sendToGPT4(prompt: userPrompt) { [weak self] result in
+        sendToModel(prompt: userPrompt, model: .gpt35Turbo) { [weak self] result in
             switch result {
             case .success(let response):
                 // Speak the GPT-4 response
