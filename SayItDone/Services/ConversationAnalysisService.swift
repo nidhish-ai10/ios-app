@@ -14,63 +14,20 @@ class ConversationAnalysisService {
 
         Return an array of events in JSON format, where each event follows this structure:
         {
-            "event": "event_type",
-            "data": {
-                // Event-specific data fields
-            }
+          "type": "memory",
+          "content": "User enjoys classical music.",
+          "source": "conversation",
+          "timestamp": "2025-06-16T15:00:00Z",
+          "tags": ["music", "preference"],
+          "confidence": 0.9
         }
-
-        Event types and their data structures:
-
-        // User Preferences and Information
-        - "preference": {
-            "category": "topics/goals/constraints",
-            "value": "the specific preference",
-            "context": "additional context if available"
-          }
-        - "personal_info": {
-            "type": "name/location/occupation",
-            "value": "the specific information",
-            "context": "additional context if available"
-          }
-        - "interaction_style": {
-            "type": "communication_preference/response_time",
-            "value": "the specific style",
-            "context": "additional context if available"
-          }
-
-        // Specific Mentions
-        - "mentioned_family_member": {
-            "relation": "relationship type",
-            "name": "person's name",
-            "age": number,
-            "details": "additional information"
-          }
-        - "mentioned_activity": {
-            "activity": "activity name",
-            "frequency": "how often",
-            "preference": "likes/dislikes"
-          }
-        - "mentioned_location": {
-            "place": "location name",
-            "type": "home/work/other",
-            "details": "additional context"
-          }
-        - "mentioned_goal": {
-            "goal": "goal description",
-            "timeline": "when they want to achieve it",
-            "priority": "high/medium/low"
-          }
 
         IMPORTANT RULES:
         1. Only include events where you have clear, specific information
-        2. For each event, include only the fields where you have concrete information
-        3. If you're unsure about any information, omit that field
-        4. If there is no clear, specific information worth storing, return an empty array
-        5. Do not make assumptions or infer information
-        6. Only extract information that is explicitly stated
-        7. For preferences, personal info, and interaction style, use the specific event types above
-        8. For specific mentions (family, activities, etc.), use the mentioned_* event types
+        2. Do not return any information that is not explicitly stated in the conversation
+        3. If there is no clear, specific information worth storing, return an empty array
+        4. Do not make assumptions or infer information
+        5. Only extract information that is explicitly stated
 
         Conversation snippet:
         Assistant: \(assistantMessage)
