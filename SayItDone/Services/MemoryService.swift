@@ -1,11 +1,22 @@
 import Foundation
 
-class ConversationAnalysisService {
-    static let shared = ConversationAnalysisService()
+class MemoryService {
+    static let shared = MemoryService()
     private let openAIService = OpenAIService()
+    private(set) var storedMemories: [MemoryEvent] = []
+    private let memoryStorageKey = "storedMemories"
     
     private init() {}
-    
+
+    struct MemoryEvent: Codable {
+        let type: String
+        let content: String
+        let source: String
+        var timestamp: String
+        let tags: [String]
+        let confidence: Double
+    }
+        
     /// Analyzes a single conversation snippet and returns events only if meaningful information is found
     func analyzeSnippet(assistantMessage: String, userMessage: String) async throws -> [[String: Any]]? {
         let prompt = """
@@ -28,6 +39,7 @@ class ConversationAnalysisService {
         3. If there is no clear, specific information worth storing, return an empty array
         4. Do not make assumptions or infer information
         5. Only extract information that is explicitly stated
+        6. Keep tags very simple and general for easy searching
 
         Conversation snippet:
         Assistant: \(assistantMessage)
@@ -67,4 +79,34 @@ class ConversationAnalysisService {
             }
         }
     }
-} 
+
+    func saveMemories(memories: [MemoryEvent]) async throws {
+        storedMemories.append(contentsOf: memories)
+        if let data = try? JSONEncoder().encode(storedMemories) {
+            UserDefaults.standard.set(data, forKey: memoryStorageKey)
+        }
+    }
+
+    func loadStoredMemories() {
+        if let data = UserDefaults.standard.data(forKey: memoryStorageKey),
+        let memories = try? JSONDecoder().decode([MemoryEvent].self, from: data) {
+            storedMemories = memories
+        }
+    }
+
+    func searchMemories(query: [String]) async throws -> [[String: Any]]? {
+        let matchingMemories = storedMemories.filter { memory in
+            memory.tags.contains { tag in
+                query.contains { searchTag in
+                    tag.localizedCaseInsensitiveContains(searchTag)
+                }
+            }
+        }
+        guard !matchingMemories.isEmpty else { return nil }
+
+        // Convert to [[String: Any]] for compatibility
+        let encodedData = try JSONEncoder().encode(matchingMemories)
+        let jsonObject = try JSONSerialization.jsonObject(with: encodedData) as? [[String: Any]]
+        return jsonObject
+    }
+}
