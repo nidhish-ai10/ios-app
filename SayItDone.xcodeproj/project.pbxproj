@@ -408,7 +408,7 @@
 				CODE_SIGN_ENTITLEMENTS = SayItDone/SayItDone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = HC742W2QC6;
+				DEVELOPMENT_TEAM = DYQ7WT9WNJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "SayItDone needs access to your microphone to recognize your voice commands for creating tasks.";
@@ -439,7 +439,7 @@
 				CODE_SIGN_ENTITLEMENTS = SayItDone/SayItDone.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = HC742W2QC6;
+				DEVELOPMENT_TEAM = DYQ7WT9WNJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "SayItDone needs access to your microphone to recognize your voice commands for creating tasks.";
