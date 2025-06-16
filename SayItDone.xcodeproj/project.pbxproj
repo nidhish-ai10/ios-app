@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A4D830732DFB630C00D3FBED /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A4D830722DFB630C00D3FBED /* FirebaseFirestore */; };
 		A7E7C03D2DFB1DA600D57D3B /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A7E7C03C2DFB1DA600D57D3B /* FirebaseAuth */; };
 		A7E7C03F2DFB1DA600D57D3B /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = A7E7C03E2DFB1DA600D57D3B /* FirebaseCore */; };
 /* End PBXBuildFile section */
@@ -59,6 +60,7 @@
 			files = (
 				A7E7C03F2DFB1DA600D57D3B /* FirebaseCore in Frameworks */,
 				A7E7C03D2DFB1DA600D57D3B /* FirebaseAuth in Frameworks */,
+				A4D830732DFB630C00D3FBED /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -121,6 +123,7 @@
 			packageProductDependencies = (
 				A7E7C03C2DFB1DA600D57D3B /* FirebaseAuth */,
 				A7E7C03E2DFB1DA600D57D3B /* FirebaseCore */,
+				A4D830722DFB630C00D3FBED /* FirebaseFirestore */,
 			);
 			productName = SayItDone;
 			productReference = A7017D632DEE23AF0022A262 /* SayItDone.app */;
@@ -583,6 +586,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A4D830722DFB630C00D3FBED /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FirebaseFirestore;
+		};
 		A7E7C03C2DFB1DA600D57D3B /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A7E7C03B2DFB1DA600D57D3B /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

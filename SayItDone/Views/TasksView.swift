@@ -47,96 +47,14 @@ struct TasksView: View {
         ZStack {
             VStack(spacing: 0) {
                 // Tasks section
-                ScrollView {
-                    if taskManager.tasks.isEmpty {
-                        // Empty state - completely blank
-                        Spacer()
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: UIScreen.main.bounds.height - 200)
-                    } else {
-                        // Task list - MODIFIED: Support multiple tasks
-                        LazyVStack(spacing: 12) {
-                            ForEach(taskManager.tasks) { task in
-                                TaskRowView(task: task) { task in
-                                    // Delete task action
-                                    provideHapticFeedback(.medium)
-                                    taskManager.removeTask(task)
-                                    
-                                    // Show undo button
-                                    showUndoOption()
-                                }
-                                .id(task.id)
-                                .background(Color.clear)
-                                .cornerRadius(8)
-                                .scaleEffect(1.0)
-                            }
-                        }
-                        .id(forceUpdateTasks) // Force view to rebuild when this changes
-                        .padding(.horizontal, 16)
-                        .padding(.top, 20)
-                    }
-                }
-                
+                taskListView
                 // Add space at the bottom to make room for the floating recording indicator
                 Spacer()
-                    .frame(height: 35)
+                .frame(height: 35)
             }
             
             // Position the recording indicator near the bottom above where the mic button would be
-            VStack {
-                Spacer()
-                
-                // Recording indicator with live transcription - enhanced for better visibility
-                if showingRecordingIndicator {
-                    VStack(spacing: 10) {
-                        // Status label - show whether using VAD or manual recording
-                        if speechService.isVADActive && isVADEnabled {
-                            Text("Auto-listening active")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 4)
-                        }
-                        
-                        // Waveform animation (audio visualization) - more active when listening
-                        HStack(spacing: 3) {
-                            ForEach(0..<5) { index in
-                                RoundedRectangle(cornerRadius: 1)
-                                    .fill(pastelBlueDarker)
-                                    .frame(width: 3, height: speechService.isListening ? 20 : 10)
-                                    .modifier(WaveformAnimationModifier(
-                                        isActive: speechService.isListening,
-                                        delay: Double(index) * 0.15
-                                    ))
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        
-                        // Transcription text with improved visibility and status indicator
-                        Text(speechService.transcribedText.isEmpty ? 
-                             (speechService.isListening ? "Listening..." : "Say something...") : 
-                             speechService.transcribedText)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.primary)
-                            .lineLimit(3)
-                            .multilineTextAlignment(.center)
-                            .frame(minHeight: 60)
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal)
-                            .animation(.easeInOut(duration: 0.2), value: speechService.transcribedText)
-                            .animation(.easeInOut(duration: 0.2), value: speechService.isListening)
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(UIColor.secondarySystemBackground))
-                            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                    )
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 90) // Position it above where the mic button will be
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
+            recordingIndicatorView
         }
         .onAppear {
             print("TasksView: Loaded with \(taskManager.tasks.count) tasks")
@@ -180,6 +98,19 @@ struct TasksView: View {
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                             print("🎤 Restarting VAD after GPT-4 interaction (with extended delay)")
                                             self.speechService.forceRestartVAD()
+                                        }
+                                        
+                                        // Analyze the conversation snippet
+                                        Task {
+                                            do {
+                                                let assistantMessage = try result.get() // Extract the String from Result
+                                                try await FirebaseUserService.shared.analyzeSnippet(
+                                                    assistantMessage: assistantMessage,
+                                                    userMessage: finalText
+                                                )
+                                            } catch {
+                                                print("Error analyzing conversation: \(error)")
+                                            }
                                         }
                                     }
                                 }
@@ -276,64 +207,11 @@ struct TasksView: View {
         }
         .overlay(
             // Undo button overlay
-            VStack {
-                Spacer()
-                
-                if showingUndoButton {
-                    Button(action: {
-                        // Undo the last deletion
-                        if taskManager.undoLastDeletion() {
-                            // Show feedback
-                            showFeedback(message: "Task restored")
-                            
-                            // Hide the undo button
-                            withAnimation {
-                                showingUndoButton = false
-                            }
-                            
-                            // Provide haptic feedback
-                            provideHapticFeedback(.medium)
-                        }
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.uturn.backward")
-                                .font(.system(size: 14))
-                            Text("Undo")
-                                .font(.system(size: 16, weight: .medium))
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(
-                            Capsule()
-                                .fill(Color(UIColor.systemBackground))
-                                .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
-                        )
-                    }
-                    .padding(.bottom, 90)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
+            undoButtonIndicator
         )
         .overlay(
             // Feedback message overlay
-            Group {
-                if showingFeedback {
-                    VStack {
-                        Spacer()
-                        Text(feedbackMessage)
-                            .font(.subheadline)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color(.systemBackground))
-                                    .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-                            )
-                            .padding(.bottom, 100)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingFeedback)
-                    }
-                }
-            }
+            feedbackMessageIndicator
         )
         .alert(isPresented: $showingVerificationDialog) {
             Alert(
@@ -807,6 +685,156 @@ struct TasksView: View {
             }
         )
     }
+    
+    private var taskListView: some View {
+        ScrollView {
+            if taskManager.tasks.isEmpty {
+                // Empty state - completely blank
+                Spacer()
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: UIScreen.main.bounds.height - 200)
+            } else {
+                // Task list - MODIFIED: Support multiple tasks
+                LazyVStack(spacing: 12) {
+                    ForEach(taskManager.tasks) { task in
+                        TaskRowView(task: task) { task in
+                            // Delete task action
+                            provideHapticFeedback(.medium)
+                            taskManager.removeTask(task)
+                            
+                            // Show undo button
+                            showUndoOption()
+                        }
+                        .id(task.id)
+                        .background(Color.clear)
+                        .cornerRadius(8)
+                        .scaleEffect(1.0)
+                    }
+                }
+                .id(forceUpdateTasks) // Force view to rebuild when this changes
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+            }
+        }
+    }
+
+    private var recordingIndicatorView: some View {
+        VStack {
+            Spacer()
+            
+            // Recording indicator with live transcription - enhanced for better visibility
+            if showingRecordingIndicator {
+                VStack(spacing: 10) {
+                    // Status label - show whether using VAD or manual recording
+                    if speechService.isVADActive && isVADEnabled {
+                        Text("Auto-listening active")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
+                    
+                    // Waveform animation (audio visualization) - more active when listening
+                    HStack(spacing: 3) {
+                        ForEach(0..<5) { index in
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(pastelBlueDarker)
+                                .frame(width: 3, height: speechService.isListening ? 20 : 10)
+                                .modifier(WaveformAnimationModifier(
+                                    isActive: speechService.isListening,
+                                    delay: Double(index) * 0.15
+                                ))
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    
+                    // Transcription text with improved visibility and status indicator
+                    Text(speechService.transcribedText.isEmpty ?
+                            (speechService.isListening ? "Listening..." : "Say something...") :
+                            speechService.transcribedText)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.center)
+                        .frame(minHeight: 60)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal)
+                        .animation(.easeInOut(duration: 0.2), value: speechService.transcribedText)
+                        .animation(.easeInOut(duration: 0.2), value: speechService.isListening)
+                }
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(UIColor.secondarySystemBackground))
+                        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 90) // Position it above where the mic button will be
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+    }
+
+    private var undoButtonIndicator: some View {
+        VStack {
+            Spacer()
+            
+            if showingUndoButton {
+                Button(action: {
+                    // Undo the last deletion
+                    if taskManager.undoLastDeletion() {
+                        // Show feedback
+                        showFeedback(message: "Task restored")
+                        
+                        // Hide the undo button
+                        withAnimation {
+                            showingUndoButton = false
+                        }
+                        
+                        // Provide haptic feedback
+                        provideHapticFeedback(.medium)
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.uturn.backward")
+                            .font(.system(size: 14))
+                        Text("Undo")
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color(UIColor.systemBackground))
+                            .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
+                    )
+                }
+                .padding(.bottom, 90)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+    }
+
+    private var feedbackMessageIndicator: some View {
+        Group {
+            if showingFeedback {
+                VStack {
+                    Spacer()
+                    Text(feedbackMessage)
+                        .font(.subheadline)
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+                        )
+                        .padding(.bottom, 100)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showingFeedback)
+                }
+            }
+        }
+    }
 }
 
 // Waveform animation modifier
@@ -836,6 +864,8 @@ struct WaveformAnimationModifier: ViewModifier {
             }
     }
 }
+
+
 
 #Preview {
     TasksView()
