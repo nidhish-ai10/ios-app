@@ -10,6 +10,7 @@ class MemoryService {
     private init() {}
 
     struct MemoryEvent: Codable {
+        let id: String
         let type: String
         let content: String
         let source: String
@@ -69,6 +70,7 @@ class MemoryService {
                     let eventsWithTimestamp = events.map { event -> [String: Any] in
                         var updatedEvent = event
                         updatedEvent["timestamp"] = timestamp
+                        updatedEvent["id"] = UUID().uuidString
                         return updatedEvent
                     }
                     

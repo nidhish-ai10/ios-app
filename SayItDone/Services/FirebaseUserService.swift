@@ -237,4 +237,67 @@ class FirebaseUserService: ObservableObject {
            )
        }
    }
+    
+    func backupMemoryToFirebase(_ memory: MemoryService.MemoryEvent, completion: @escaping (Error?) -> Void) {
+        guard let uid = currentUser?.id else {
+            completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No user logged in"]))
+            return
+        }
+
+        let memoryRef = db.collection("users").document(uid).collection("memories")
+
+        let memoryData: [String: Any] = [
+            "id": memory.id,
+            "type": memory.type,
+            "content": memory.content,
+            "source": memory.source,
+            "timestamp": memory.timestamp,
+            "tags": memory.tags,
+            "confidence": memory.confidence
+        ]
+
+        memoryRef.addDocument(data: memoryData) { error in
+            completion(error)
+        }
+    }
+    
+    func syncFirebase() async throws {
+        guard let uid = currentUser?.id else { return }
+
+        let memoryRef = db.collection("users").document(uid).collection("memories")
+        let snapshot = try await memoryRef.getDocuments()
+
+        var newMemories: [MemoryService.MemoryEvent] = []
+
+        for document in snapshot.documents {
+            let data = document.data()
+            guard let id = document.documentID as String?,
+                  let type = data["type"] as? String,
+                  let content = data["content"] as? String,
+                  let source = data["source"] as? String,
+                  let timestamp = data["timestamp"] as? Timestamp,
+                  let tags = data["tags"] as? [String],
+                  let confidence = data["confidence"] as? Double else {
+                continue
+            }
+
+            let memory = MemoryService.MemoryEvent(
+                id: id,
+                type: type,
+                content: content,
+                source: source,
+                timestamp: ISO8601DateFormatter().string(from: timestamp.dateValue()),
+                tags: tags,
+                confidence: confidence
+            )
+
+            // Check for duplicates in local storage
+            if !MemoryService.shared.storedMemories.contains(where: { $0.id == memory.id }) {
+                newMemories.append(memory)
+            }
+        }
+
+        // Store to local UserDefaults
+        try await MemoryService.shared.saveMemories(memories: newMemories)
+    }
 }
