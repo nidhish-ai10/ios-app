@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 class MemoryService {
     static let shared = MemoryService()
@@ -108,5 +109,26 @@ class MemoryService {
         let encodedData = try JSONEncoder().encode(matchingMemories)
         let jsonObject = try JSONSerialization.jsonObject(with: encodedData) as? [[String: Any]]
         return jsonObject
+    }
+
+    func extractImportantWords(from message: String) -> [String] {
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = message.lowercased()
+        var importantWords: [String] = []
+
+        let options: NLTagger.Options = [.omitPunctuation, .omitWhitespace, .joinNames]
+
+        tagger.enumerateTags(in: message.startIndex..<message.endIndex,
+                            unit: .word,
+                            scheme: .lexicalClass,
+                            options: options) { tag, tokenRange in
+            if let tag = tag, tag == .noun || tag == .verb || tag == .properNoun {
+                let word = String(message[tokenRange])
+                importantWords.append(word)
+            }
+            return true
+        }
+
+        return Array(Set(importantWords)) // Remove duplicates
     }
 }
