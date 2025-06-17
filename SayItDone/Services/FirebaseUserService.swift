@@ -170,7 +170,7 @@ class FirebaseUserService: ObservableObject {
   
    func storeConversationAnalysis(_ messages: [String]) async throws {
        // Get the analysis from the conversation analysis service
-       guard let events = try await ConversationAnalysisService.shared.analyzeSnippet(
+       guard let events = try await MemoryService.shared.analyzeSnippet(
            assistantMessage: messages[0],
            userMessage: messages[1]
        ) else {
@@ -212,7 +212,7 @@ class FirebaseUserService: ObservableObject {
    
    /// Analyzes a single conversation snippet and stores events if meaningful information is found
    func analyzeSnippet(assistantMessage: String, userMessage: String) async throws {
-       guard let events = try await ConversationAnalysisService.shared.analyzeSnippet(
+       guard let events = try await MemoryService.shared.analyzeSnippet(
            assistantMessage: assistantMessage,
            userMessage: userMessage
        ) else {

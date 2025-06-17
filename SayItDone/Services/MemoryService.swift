@@ -122,7 +122,7 @@ class MemoryService {
                             unit: .word,
                             scheme: .lexicalClass,
                             options: options) { tag, tokenRange in
-            if let tag = tag, tag == .noun || tag == .verb || tag == .properNoun {
+            if let tag = tag, tag == .noun || tag == .verb {
                 let word = String(message[tokenRange])
                 importantWords.append(word)
             }
