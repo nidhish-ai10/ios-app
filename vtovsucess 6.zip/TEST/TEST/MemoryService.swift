@@ -29,9 +29,9 @@ class MemoryService {
     }
         
     /// Analyzes a single conversation snippet and returns events only if meaningful information is found
-    func analyzeSnippet(assistantMessage: String, userMessage: String) async throws -> [[String: Any]]? {
+    func analyzeSnippet(assistantMessage: String = "", userMessage: String) async throws -> [[String: Any]]? {
         let prompt = """
-        Analyze this single conversation snippet and extract ONLY specific, meaningful information that should be stored.
+        Analyze this single conversation snippet between the assistant and user and extract ONLY specific, meaningful information that should be stored.
         If there is no clear, specific information worth storing, return an empty array.
 
         Return an array of events in JSON format, where each event follows this structure:

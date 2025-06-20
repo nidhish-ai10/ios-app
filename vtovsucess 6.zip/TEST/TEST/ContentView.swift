@@ -505,16 +505,15 @@ class SpeechRecognizer: ObservableObject {
     // Voice settings
     @AppStorage("voiceSpeed") private var voiceSpeed: Double = 1.0
     
+    // Memory Integration
+    private var memory = MemoryService.shared
+    
     // NEW: Additional protection against recording AI voice
     private var shouldPreventRecording = false
     private var ttsCompletionTimer: Timer?
     
     init() {
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-        
-        // Initialize LLM Manager with API key and TTS Service
-        // TODO: Replace with your actual OpenAI API key
-        let apiKey = "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"
         llmManager = LLMManager.shared
         ttsService = TTSService()
         
@@ -674,6 +673,25 @@ class SpeechRecognizer: ObservableObject {
         isProcessing = true
         let userMessage = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         
+        //Memory processing
+        Task {
+            do {
+                guard var results = try await memory.analyzeSnippet(userMessage: userMessage) else{
+                    return
+                }
+                for result in results {
+                    let event = memory.MemoryEvent.init(
+                        id: UUID().uuidString,
+                        type: result["type"],
+                        content: result["content"],
+                        
+                    )
+                    memory.saveMemories(memories: event)
+                }
+            } catch {
+                print("Memory analysis failed: \(error)")
+            }
+        }
         // Add user message to conversation history
         let userChatMessage = ConversationMessage(
             content: userMessage,
@@ -1302,5 +1320,3 @@ struct AboutView: View {
 #Preview {
     ContentView()
 }
-
-

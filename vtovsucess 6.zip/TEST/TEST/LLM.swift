@@ -93,7 +93,8 @@ class LLMManager: ObservableObject {
     static let shared = LLMManager()
     
     private init() {
-        self.apiKey = 
+        self.apiKey  = ""
+        networkManager = NetworkManager.shared
     }
     
     // MARK: - Public Methods
