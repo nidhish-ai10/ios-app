@@ -1,0 +1,51 @@
+# Xcode
+.DS_Store
+*/build/*
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+profile
+*.moved-aside
+DerivedData
+.idea/
+*.hmap
+*.xccheckout
+*.xcworkspace
+!default.xcworkspace
+
+# Sensitive Configuration Files
+Config.plist
+**/Config.plist
+TEST/Config.plist
+
+# API Keys and Secrets
+*.env
+.env.*
+secrets.json
+api_keys.json
+
+# Build artifacts
+build/
+Build/
+DerivedData/
+
+# Pods
+Pods/
+*.xcworkspace
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Carthage
+Carthage/Build/
+
+# Firebase
+GoogleService-Info.plist
+**/GoogleService-Info.plist 
