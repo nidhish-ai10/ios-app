@@ -515,7 +515,7 @@ class SpeechRecognizer: ObservableObject {
         // Initialize LLM Manager with API key and TTS Service
         // TODO: Replace with your actual OpenAI API key
         let apiKey = "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"
-        llmManager = LLMManager(apiKey: apiKey)
+        llmManager = LLMManager.shared
         ttsService = TTSService()
         
         Task {

@@ -90,10 +90,10 @@ class LLMManager: ObservableObject {
     private let baseURL = "https://api.openai.com/v1/chat/completions"
     private let defaultModel = "gpt-4.1-nano"
     private let networkManager: NetworkManager
+    static let shared = LLMManager()
     
-    init(apiKey: String, networkManager: NetworkManager = NetworkManager.shared) {
-        self.apiKey = apiKey
-        self.networkManager = networkManager
+    private init() {
+        self.apiKey = 
     }
     
     // MARK: - Public Methods
@@ -195,32 +195,3 @@ class LLMManager: ObservableObject {
         }
     }
 }
-
-// MARK: - Convenience Extensions
-extension LLMManager {
-    /// Create a conversation-style interaction
-    static func createConversation(apiKey: String, networkManager: NetworkManager = NetworkManager.shared) -> LLMManager {
-        return LLMManager(apiKey: apiKey, networkManager: networkManager)
-    }
-    
-    /// Quick one-shot question
-    static func quickQuery(_ query: String, apiKey: String, networkManager: NetworkManager = NetworkManager.shared) async throws -> String {
-        let manager = LLMManager(apiKey: apiKey, networkManager: networkManager)
-        return try await manager.sendMessage(query)
-    }
-}
-
-// MARK: - Configuration
-struct LLMConfiguration {
-    static let defaultTemperature: Double = 0.7
-    static let defaultMaxTokens: Int = 1000
-    
-    // Common system prompts
-    struct SystemPrompts {
-        static let assistant = "You are a helpful assistant."
-        static let transcriptionProcessor = "You are an AI assistant that processes transcribed speech. Please respond naturally and helpfully to what the user has said."
-        static let summarizer = "You are an expert at creating concise, accurate summaries."
-        static let questionAnswerer = "You are an AI that answers questions based on provided context accurately and concisely."
-    }
-}
-
