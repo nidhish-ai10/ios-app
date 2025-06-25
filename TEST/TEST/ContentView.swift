@@ -525,6 +525,9 @@ class SpeechRecognizer: ObservableObject {
     // Voice settings
     @AppStorage("voiceSpeed") private var voiceSpeed: Double = 1.0
     
+    // Memory Integration
+    private var memory = MemoryService.shared
+    
     // NEW: Additional protection against recording AI voice
     private var shouldPreventRecording = false
     private var ttsCompletionTimer: Timer?
@@ -532,10 +535,8 @@ class SpeechRecognizer: ObservableObject {
     init() {
         recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
         
-        // Initialize LLM Manager with API key and TTS Service
-        // TODO: Replace with your actual OpenAI API key
-        let apiKey = "YOUR_OPENAI_API_KEY_HERE"
-        llmManager = LLMManager(apiKey: apiKey)
+      
+        llmManager = LLMManager.shared
         ttsService = TTSService()
         
         // Set up TTS completion callbacks
@@ -745,7 +746,30 @@ class SpeechRecognizer: ObservableObject {
         }
         
         let userMessage = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-        print("🚀 FAST PROCESSING: Starting LLM processing for: '\(userMessage)'")
+        
+        //Memory processing
+        Task {
+            do {
+                guard var results = try await memory.analyzeSnippet(userMessage: userMessage) else{
+                    return
+                }
+                for result in results {
+                    let event = MemoryService.MemoryEvent(
+                        id: UUID().uuidString,
+                        type: result["type"] as? String ?? "",
+                        content: result["content"] as? String ?? "",
+                        source: result["source"] as? String ?? "conversation",
+                        timestamp: result["timestamp"] as? String ?? Date().description,
+                        tags: result["tags"] as? [String] ?? [],
+                        confidence: result["confidence"] as? Double ?? 0.5
+                    )
+                    try await memory.saveMemories(memories: [event])
+                }
+            } catch {
+                print("Memory analysis failed: \(error)")
+            }
+        }
+        
         
         // Add user message to conversation history immediately
         let userChatMessage = ConversationMessage(
